@@ -422,7 +422,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4795194407924298, guid: 51a5e06934e40e1468d0367239466bc4, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.2
+      value: 4.6
       objectReference: {fileID: 0}
     - target: {fileID: 4795194407924298, guid: 51a5e06934e40e1468d0367239466bc4, type: 3}
       propertyPath: m_LocalPosition.z
@@ -470,7 +470,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 114944368084590064, guid: 51a5e06934e40e1468d0367239466bc4, type: 3}
       propertyPath: takeoffRiseHeight
-      value: 20
+      value: 40
       objectReference: {fileID: 0}
     - target: {fileID: 114944368084590064, guid: 51a5e06934e40e1468d0367239466bc4, type: 3}
       propertyPath: followCameraOffset.y
