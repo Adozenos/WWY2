@@ -871,10 +871,10 @@ public class DragonExample : MonoBehaviour
 
     private float GetCurrentAirLiftCompensationY()
     {
-        if (state == DragonRideState.MountedAirHoverMove && Input.GetKey(KeyCode.W))
-        {
-            return airForwardLiftY;
-        }
+        //if (state == DragonRideState.MountedAirHoverMove && Input.GetKey(KeyCode.W))
+        //{
+        //    return airForwardLiftY;
+        //}
 
         return 0f;
     }
