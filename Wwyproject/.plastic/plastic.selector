@@ -1,0 +1,4 @@
+repository "Wwyproject@tj_yhygnb@cloud.cn"
+  path "/"
+    br "/main"
+    co "/main"
