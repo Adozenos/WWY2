@@ -80,6 +80,8 @@ public static class DragonRideSceneInstaller
             dragon.AddComponent<DragonBoneOriginAnchor>();
         }
 
+        ConfigureDragonPhysics(dragon);
+
         GameObject rideCameraObject = GameObject.Find("long");
         if (rideCameraObject == null)
         {
@@ -174,7 +176,13 @@ public static class DragonRideSceneInstaller
         SetFloat(serialized, "groundMoveSpeed", 10f);
         SetFloat(serialized, "airMoveSpeed", 10f);
         SetFloat(serialized, "yawSpeed", 10f);
+        SetFloat(serialized, "groundBrake", 12f);
         SetFloat(serialized, "takeoffRiseHeight", 20f);
+        SetFloat(serialized, "pitchSpeed", 80f);
+        SetFloat(serialized, "maxPitchAngle", 45f);
+        SetFloat(serialized, "hoverBrake", 8f);
+        SetFloat(serialized, "landingDescendSpeed", 8f);
+        SetFloat(serialized, "groundCheckDistance", 2.5f);
         SetString(serialized, "riderObjectName", "FPSController");
         SetString(serialized, "mainRideCameraName", "long");
         SetObject(serialized, "riderRootOverride", rider);
@@ -183,6 +191,32 @@ public static class DragonRideSceneInstaller
         SetVector3(serialized, "followCameraOffset", new Vector3(0f, 6f, -8f));
         SetVector3(serialized, "followLookAtOffset", new Vector3(0f, 6f, 1f));
         serialized.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static void ConfigureDragonPhysics(GameObject dragon)
+    {
+        Rigidbody body = dragon.GetComponent<Rigidbody>();
+        if (body == null)
+        {
+            body = dragon.AddComponent<Rigidbody>();
+        }
+
+        body.mass = 500f;
+        body.useGravity = false;
+        body.isKinematic = true;
+        body.interpolation = RigidbodyInterpolation.Interpolate;
+        body.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+        body.constraints = RigidbodyConstraints.FreezeRotationZ;
+
+        BoxCollider collider = dragon.GetComponent<BoxCollider>();
+        if (collider == null)
+        {
+            collider = dragon.AddComponent<BoxCollider>();
+        }
+
+        collider.isTrigger = false;
+        collider.center = new Vector3(0f, 2.5f, 0f);
+        collider.size = new Vector3(4f, 5f, 9f);
     }
 
     private static void CopyPostProcessing(Camera source, Camera destination)
