@@ -25,6 +25,11 @@ public sealed class DragonBoneOriginAnchor : MonoBehaviour
                 continue;
             }
 
+            if (FindChildByName(sceneTransform, "Bone.006") == null)
+            {
+                continue;
+            }
+
             if (sceneTransform.GetComponent<DragonBoneOriginAnchor>() == null)
             {
                 sceneTransform.gameObject.AddComponent<DragonBoneOriginAnchor>();

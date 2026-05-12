@@ -3,46 +3,67 @@ using UnityStandardAssets.Characters.FirstPerson;
 
 public class DragonExample : MonoBehaviour
 {
-    private enum AirAnimationMode
-    {
-        HoverIdle,
-        FlyingForward
-    }
-
     private enum DragonRideState
     {
-        UnmountedIdleRestless,
+        Unmounted,
         MountedGroundIdle,
-        MountedGroundWalk,
+        MountedGroundMove,
         MountedTakeOff,
-        MountedAirHoverMove,
+        MountedAirMove,
         MountedLanding
     }
 
+    private enum UnmountedWakeAnimation
+    {
+        Sleep,
+        Idle,
+        Scream
+    }
+
     [Header("Mount")]
+    [SerializeField] private float wakeDistance = 18f;
     [SerializeField] private float mountDistance = 6f;
     [SerializeField] private Vector3 mountOffset = new Vector3(0f, 2.5f, -1.5f);
     [SerializeField] private Vector3 dismountOffset = new Vector3(2f, 0f, 0f);
 
     [Header("Movement")]
-    [SerializeField] private float groundMoveSpeed = 4f;
-    [SerializeField] private float airMoveSpeed = 8f;
+    [SerializeField] private float groundMoveSpeed = 8f;
+    [SerializeField] private float runMoveSpeed = 14f;
+    [SerializeField] private float airMoveSpeed = 16f;
+    [SerializeField] private float airGlideMoveSpeed = 24f;
     [SerializeField] private float yawSpeed = 120f;
     [SerializeField] private float groundBrake = 12f;
 
     [Header("Flight")]
     [SerializeField] private float takeoffRiseHeight = 8f;
     [SerializeField] private float takeoffDuration = 1.2f;
-    [SerializeField] private float landingDuration = 1.2f;
-    [SerializeField] private float takeoffToHoverNormalizedTime = 0.95f;
-    [SerializeField] private float landingGroundEpsilon = 0.05f;
-    [SerializeField] private float airForwardLiftY = 18f;
+    [SerializeField] private float takeoffToHoverNormalizedTime = 0.9f;
     [SerializeField] private float pitchSpeed = 80f;
     [SerializeField] private float maxPitchAngle = 45f;
-    [SerializeField] private float hoverBrake = 8f;
     [SerializeField] private float landingDescendSpeed = 8f;
+    [SerializeField] private float landingGroundEpsilon = 0.05f;
     [SerializeField] private float groundCheckDistance = 2.5f;
     [SerializeField] private LayerMask groundMask = ~0;
+
+    [Header("SoulEater Animation States")]
+    [SerializeField] private string sleepState = "Sleep";
+    [SerializeField] private string idleState = "Idle";
+    [SerializeField] private string screamState = "Scream";
+    [SerializeField] private string walkState = "Walk";
+    [SerializeField] private string runState = "Run";
+    [SerializeField] private string takeOffState = "Take Off";
+    [SerializeField] private string flyForwardState = "Fly Forward";
+    [SerializeField] private string flyGlideState = "Fly Glide";
+    [SerializeField] private string flyFloatState = "Fly Float";
+    [SerializeField] private string landState = "Land";
+    [SerializeField] private string defendState = "Defend";
+    [SerializeField] private string flyFireballState = "Fly Fireball Shoot";
+    [SerializeField] private string[] groundAttackStates = { "Basic Attack", "Tail Attack", "Fireball Shoot" };
+    [SerializeField] private float animationBlendTime = 0.12f;
+    [SerializeField] private int idleLoopsBeforeScream = 2;
+    [SerializeField] private float screamReturnNormalizedTime = 0.95f;
+    [SerializeField] private float attackLockDuration = 1.1f;
+    [SerializeField] private float defendRefreshInterval = 0.25f;
 
     [Header("Rider")]
     [SerializeField] private Transform riderRootOverride;
@@ -56,43 +77,12 @@ public class DragonExample : MonoBehaviour
     [SerializeField] private Vector3 followLookAtOffset = new Vector3(0f, 1.8f, 2.5f);
     [SerializeField] private float followSmooth = 8f;
 
-    private const string IdleSimpleParam = "IdleSimple";
-    private const string IdleAgressiveParam = "IdleAgressive";
-    private const string IdleRestlessParam = "IdleRestless";
-    private const string WalkParam = "Walk";
-    private const string BattleStanceParam = "BattleStance";
-    private const string BiteParam = "Bite";
-    private const string DrakarisParam = "Drakaris";
-    private const string FlyingFwdParam = "FlyingFWD";
-    private const string FlyingAttackParam = "FlyingAttack";
-    private const string HoverParam = "Hover";
-    private const string LandsParam = "Lands";
-    private const string TakeOffParam = "TakeOff";
-    private const string DieParam = "Die";
     private const string PreferredRideCameraName = "long";
 
     private Animator anim;
     private Rigidbody dragonRigidbody;
-
-    private int idleSimpleHash;
-    private int idleAgressiveHash;
-    private int idleRestlessHash;
-    private int walkHash;
-    private int battleStanceHash;
-    private int biteHash;
-    private int drakarisHash;
-    private int flyingFwdHash;
-    private int flyingAttackHash;
-    private int hoverHash;
-    private int landsHash;
-    private int takeOffHash;
-    private int dieHash;
-    private int[] allAnimationParams;
-
     private DragonRideState state;
     private bool stateInitialized;
-    private AirAnimationMode airAnimationMode;
-    private bool airAnimationModeInitialized;
 
     private Transform riderRoot;
     private Transform riderOriginalParent;
@@ -116,15 +106,19 @@ public class DragonExample : MonoBehaviour
     private bool mainRideCameraOriginalParentCaptured;
 
     private float groundY;
-    private float hoverBaseY;
     private Vector3 takeoffStartPosition;
     private Quaternion takeoffStartRotation;
     private float takeoffElapsed;
-    private float landingStartY;
     private float landingElapsed;
     private bool dragonRigidbodyOriginalUseGravity;
     private bool dragonRigidbodyOriginalIsKinematic;
     private RigidbodyConstraints dragonRigidbodyOriginalConstraints;
+
+    private string currentAnimationState;
+    private UnmountedWakeAnimation unmountedWakeAnimation = UnmountedWakeAnimation.Sleep;
+    private float actionLockedUntil;
+    private float nextDefendRefreshTime;
+    private int groundAttackIndex;
 
     private void Start()
     {
@@ -136,15 +130,13 @@ public class DragonExample : MonoBehaviour
             return;
         }
 
-        CacheAnimatorHashes();
         ResolveDragonRigidbody();
         ResolveRiderReferences();
         ResolveCameraReferences();
         CaptureRideCameraPoseFromScene();
 
         groundY = transform.position.y;
-
-        EnterState(DragonRideState.UnmountedIdleRestless);
+        EnterState(DragonRideState.Unmounted);
         SetMountedCameraMode(false, true);
     }
 
@@ -159,20 +151,20 @@ public class DragonExample : MonoBehaviour
 
         switch (state)
         {
-            case DragonRideState.UnmountedIdleRestless:
-                UpdateUnmountedIdleRestless();
+            case DragonRideState.Unmounted:
+                UpdateUnmounted();
                 break;
             case DragonRideState.MountedGroundIdle:
                 UpdateMountedGroundIdle();
                 break;
-            case DragonRideState.MountedGroundWalk:
-                UpdateMountedGroundWalk();
+            case DragonRideState.MountedGroundMove:
+                UpdateMountedGroundMove();
                 break;
             case DragonRideState.MountedTakeOff:
                 UpdateMountedTakeOff();
                 break;
-            case DragonRideState.MountedAirHoverMove:
-                UpdateMountedAirHoverMove();
+            case DragonRideState.MountedAirMove:
+                UpdateMountedAirMove();
                 break;
             case DragonRideState.MountedLanding:
                 UpdateMountedLanding();
@@ -185,43 +177,9 @@ public class DragonExample : MonoBehaviour
         UpdateRideCameraFollow();
     }
 
-    private void CacheAnimatorHashes()
-    {
-        idleSimpleHash = Animator.StringToHash(IdleSimpleParam);
-        idleAgressiveHash = Animator.StringToHash(IdleAgressiveParam);
-        idleRestlessHash = Animator.StringToHash(IdleRestlessParam);
-        walkHash = Animator.StringToHash(WalkParam);
-        battleStanceHash = Animator.StringToHash(BattleStanceParam);
-        biteHash = Animator.StringToHash(BiteParam);
-        drakarisHash = Animator.StringToHash(DrakarisParam);
-        flyingFwdHash = Animator.StringToHash(FlyingFwdParam);
-        flyingAttackHash = Animator.StringToHash(FlyingAttackParam);
-        hoverHash = Animator.StringToHash(HoverParam);
-        landsHash = Animator.StringToHash(LandsParam);
-        takeOffHash = Animator.StringToHash(TakeOffParam);
-        dieHash = Animator.StringToHash(DieParam);
-
-        allAnimationParams = new[]
-        {
-            idleSimpleHash,
-            idleAgressiveHash,
-            idleRestlessHash,
-            walkHash,
-            battleStanceHash,
-            biteHash,
-            drakarisHash,
-            flyingFwdHash,
-            flyingAttackHash,
-            hoverHash,
-            landsHash,
-            takeOffHash,
-            dieHash
-        };
-    }
-
     private void HandleMountInput()
     {
-        if (state == DragonRideState.UnmountedIdleRestless && Input.GetKeyDown(KeyCode.F))
+        if (state == DragonRideState.Unmounted && Input.GetKeyDown(KeyCode.F))
         {
             TryMount();
         }
@@ -247,31 +205,15 @@ public class DragonExample : MonoBehaviour
             return;
         }
 
-        if (firstPersonController == null)
-        {
-            firstPersonController = riderRoot.GetComponent<FirstPersonController>();
-        }
-
-        if (characterController == null)
-        {
-            characterController = riderRoot.GetComponent<CharacterController>();
-        }
-
-        if (riderRigidbody == null)
-        {
-            riderRigidbody = riderRoot.GetComponent<Rigidbody>();
-        }
+        firstPersonController ??= riderRoot.GetComponent<FirstPersonController>();
+        characterController ??= riderRoot.GetComponent<CharacterController>();
+        riderRigidbody ??= riderRoot.GetComponent<Rigidbody>();
 
         if (firstPersonCamera == null)
         {
-            if (firstPersonCameraOverride != null)
-            {
-                firstPersonCamera = firstPersonCameraOverride;
-            }
-            else
-            {
-                firstPersonCamera = riderRoot.GetComponentInChildren<Camera>(true);
-            }
+            firstPersonCamera = firstPersonCameraOverride != null
+                ? firstPersonCameraOverride
+                : riderRoot.GetComponentInChildren<Camera>(true);
         }
 
         if (firstPersonAudioListener == null && firstPersonCamera != null)
@@ -369,7 +311,7 @@ public class DragonExample : MonoBehaviour
 
     private bool IsMounted()
     {
-        return state != DragonRideState.UnmountedIdleRestless;
+        return state != DragonRideState.Unmounted;
     }
 
     private void TryMount()
@@ -383,17 +325,14 @@ public class DragonExample : MonoBehaviour
         {
             if (!riderMissingLogged)
             {
-                Debug.LogWarning(
-                    "DragonExample could not find rider object. Assign riderRootOverride or keep riderObjectName as FPSController.",
-                    this);
+                Debug.LogWarning("DragonExample could not find rider object. Assign riderRootOverride or keep riderObjectName as FPSController.", this);
                 riderMissingLogged = true;
             }
 
             return;
         }
 
-        float distanceToRider = Vector3.Distance(riderRoot.position, transform.position);
-        if (distanceToRider > mountDistance)
+        if (Vector3.Distance(riderRoot.position, transform.position) > mountDistance)
         {
             return;
         }
@@ -432,7 +371,7 @@ public class DragonExample : MonoBehaviour
 
     private void Dismount()
     {
-        if (state != DragonRideState.MountedGroundIdle && state != DragonRideState.MountedGroundWalk)
+        if (state != DragonRideState.MountedGroundIdle && state != DragonRideState.MountedGroundMove)
         {
             return;
         }
@@ -471,13 +410,13 @@ public class DragonExample : MonoBehaviour
 
         ConfigureMountedRigidbody(false);
         SetMountedCameraMode(false, true);
-        EnterState(DragonRideState.UnmountedIdleRestless);
+        EnterState(DragonRideState.Unmounted);
     }
 
     private void HandleMountedRotation()
     {
         float yawInput = Input.GetAxis("Mouse X");
-        float pitchInput = state == DragonRideState.MountedAirHoverMove ? Input.GetAxis("Mouse Y") : 0f;
+        float pitchInput = state == DragonRideState.MountedAirMove ? Input.GetAxis("Mouse Y") : 0f;
         if (Mathf.Abs(yawInput) < 0.0001f && Mathf.Abs(pitchInput) < 0.0001f)
         {
             return;
@@ -487,7 +426,7 @@ public class DragonExample : MonoBehaviour
         float pitch = NormalizeAngle(euler.x);
         float yaw = euler.y + yawInput * yawSpeed * Time.deltaTime;
 
-        if (state == DragonRideState.MountedAirHoverMove)
+        if (state == DragonRideState.MountedAirMove)
         {
             pitch = Mathf.Clamp(pitch - pitchInput * pitchSpeed * Time.deltaTime, -maxPitchAngle, maxPitchAngle);
         }
@@ -499,14 +438,74 @@ public class DragonExample : MonoBehaviour
         MoveDragonRotation(Quaternion.Euler(pitch, yaw, 0f));
     }
 
-    private void UpdateUnmountedIdleRestless()
+    private void UpdateUnmounted()
     {
-        // Intentionally empty: this state only keeps the dragon in IdleRestless.
+        ResolveRiderReferences();
+        bool riderIsNear = riderRoot != null && Vector3.Distance(riderRoot.position, transform.position) <= wakeDistance;
+        if (!riderIsNear)
+        {
+            SetUnmountedWakeAnimation(UnmountedWakeAnimation.Sleep);
+            return;
+        }
+
+        UpdateUnmountedWakeLoop();
+    }
+
+    private void UpdateUnmountedWakeLoop()
+    {
+        if (unmountedWakeAnimation == UnmountedWakeAnimation.Sleep)
+        {
+            SetUnmountedWakeAnimation(UnmountedWakeAnimation.Idle);
+            return;
+        }
+
+        if (unmountedWakeAnimation == UnmountedWakeAnimation.Idle &&
+            GetCurrentStateNormalizedTime(idleState) >= Mathf.Max(1, idleLoopsBeforeScream))
+        {
+            SetUnmountedWakeAnimation(UnmountedWakeAnimation.Scream);
+            return;
+        }
+
+        if (unmountedWakeAnimation == UnmountedWakeAnimation.Scream &&
+            GetCurrentStateNormalizedTime(screamState) >= screamReturnNormalizedTime)
+        {
+            SetUnmountedWakeAnimation(UnmountedWakeAnimation.Idle);
+        }
+    }
+
+    private void SetUnmountedWakeAnimation(UnmountedWakeAnimation wakeAnimation)
+    {
+        string stateName = sleepState;
+        switch (wakeAnimation)
+        {
+            case UnmountedWakeAnimation.Sleep:
+                stateName = sleepState;
+                break;
+            case UnmountedWakeAnimation.Idle:
+                stateName = idleState;
+                break;
+            case UnmountedWakeAnimation.Scream:
+                stateName = screamState;
+                break;
+        }
+
+        if (unmountedWakeAnimation == wakeAnimation && currentAnimationState == stateName)
+        {
+            return;
+        }
+
+        unmountedWakeAnimation = wakeAnimation;
+        PlayAnimationState(stateName, true);
     }
 
     private void UpdateMountedGroundIdle()
     {
         BrakeHorizontalVelocity(groundBrake);
+
+        if (HandleGroundActionInput())
+        {
+            return;
+        }
 
         if (Input.GetKeyDown(KeyCode.G))
         {
@@ -522,12 +521,20 @@ public class DragonExample : MonoBehaviour
 
         if (Input.GetKey(KeyCode.W))
         {
-            EnterState(DragonRideState.MountedGroundWalk);
+            EnterState(DragonRideState.MountedGroundMove);
+            return;
         }
+
+        PlayLocomotionState(idleState);
     }
 
-    private void UpdateMountedGroundWalk()
+    private void UpdateMountedGroundMove()
     {
+        if (HandleGroundActionInput())
+        {
+            return;
+        }
+
         if (Input.GetKeyDown(KeyCode.G))
         {
             Dismount();
@@ -546,7 +553,9 @@ public class DragonExample : MonoBehaviour
             return;
         }
 
-        MoveForward(groundMoveSpeed, true);
+        bool running = IsShiftHeld();
+        MoveForward(running ? runMoveSpeed : groundMoveSpeed, true);
+        PlayLocomotionState(running ? runState : walkState);
     }
 
     private void BeginTakeOff()
@@ -567,20 +576,14 @@ public class DragonExample : MonoBehaviour
         MoveDragonPosition(nextPosition);
         MoveDragonRotation(Quaternion.Slerp(takeoffStartRotation, Quaternion.Euler(0f, takeoffStartRotation.eulerAngles.y, 0f), smoothT));
 
-        bool takeOffAnimDone = false;
-        AnimatorStateInfo stateInfo = anim.GetCurrentAnimatorStateInfo(0);
-        if (stateInfo.IsName(TakeOffParam))
-        {
-            takeOffAnimDone = stateInfo.normalizedTime >= takeoffToHoverNormalizedTime;
-        }
-
+        bool takeOffAnimDone = IsCurrentStateDone(takeOffState, takeoffToHoverNormalizedTime);
         if (takeOffAnimDone || t >= 1f)
         {
-            EnterState(DragonRideState.MountedAirHoverMove);
+            EnterState(DragonRideState.MountedAirMove);
         }
     }
 
-    private void UpdateMountedAirHoverMove()
+    private void UpdateMountedAirMove()
     {
         if (Input.GetKeyDown(KeyCode.G))
         {
@@ -588,15 +591,26 @@ public class DragonExample : MonoBehaviour
             return;
         }
 
+        if (Input.GetMouseButtonDown(0))
+        {
+            PlayActionState(flyFireballState, attackLockDuration);
+        }
+
+        if (Input.GetMouseButton(1))
+        {
+            RefreshDefendAction();
+        }
+
         if (Input.GetKey(KeyCode.W))
         {
-            SetAirAnimationMode(AirAnimationMode.FlyingForward);
-            MoveForward(airMoveSpeed, false);
+            bool gliding = IsShiftHeld();
+            MoveForward(gliding ? airGlideMoveSpeed : airMoveSpeed, false);
+            PlayLocomotionState(gliding ? flyGlideState : flyForwardState);
             return;
         }
 
         StopDragonImmediately();
-        SetAirAnimationMode(AirAnimationMode.HoverIdle);
+        PlayLocomotionState(flyFloatState);
     }
 
     private void BeginLanding()
@@ -618,6 +632,119 @@ public class DragonExample : MonoBehaviour
             SetDragonVelocity(Vector3.zero);
             EnterState(DragonRideState.MountedGroundIdle);
         }
+    }
+
+    private bool HandleGroundActionInput()
+    {
+        if (Input.GetMouseButtonDown(0))
+        {
+            string attackState = GetNextGroundAttackState();
+            PlayActionState(attackState, attackLockDuration);
+            return true;
+        }
+
+        if (Input.GetMouseButton(1))
+        {
+            RefreshDefendAction();
+            return true;
+        }
+
+        return Time.time < actionLockedUntil;
+    }
+
+    private string GetNextGroundAttackState()
+    {
+        if (groundAttackStates == null || groundAttackStates.Length == 0)
+        {
+            return "Basic Attack";
+        }
+
+        string attackState = groundAttackStates[groundAttackIndex % groundAttackStates.Length];
+        groundAttackIndex++;
+        return attackState;
+    }
+
+    private void RefreshDefendAction()
+    {
+        actionLockedUntil = Time.time + defendRefreshInterval;
+        if (Time.time >= nextDefendRefreshTime)
+        {
+            PlayAnimationState(defendState, true);
+            nextDefendRefreshTime = Time.time + defendRefreshInterval;
+        }
+    }
+
+    private void PlayActionState(string stateName, float lockDuration)
+    {
+        actionLockedUntil = Time.time + Mathf.Max(0.01f, lockDuration);
+        PlayAnimationState(stateName, true);
+    }
+
+    private void PlayLocomotionState(string stateName, bool force = false)
+    {
+        if (!force && Time.time < actionLockedUntil)
+        {
+            return;
+        }
+
+        PlayAnimationState(stateName, force);
+    }
+
+    private void PlayAnimationState(string stateName, bool force = false)
+    {
+        if (anim == null || string.IsNullOrEmpty(stateName))
+        {
+            return;
+        }
+
+        if (!force && currentAnimationState == stateName)
+        {
+            return;
+        }
+
+        if (!AnimatorHasState(stateName))
+        {
+            Debug.LogWarning($"Dragon animator does not have state '{stateName}'.", this);
+            return;
+        }
+
+        anim.CrossFadeInFixedTime(stateName, animationBlendTime, 0, 0f);
+        currentAnimationState = stateName;
+    }
+
+    private bool AnimatorHasState(string stateName)
+    {
+        int shortHash = Animator.StringToHash(stateName);
+        int fullHash = Animator.StringToHash($"Base Layer.{stateName}");
+        return anim.HasState(0, shortHash) || anim.HasState(0, fullHash);
+    }
+
+    private bool IsCurrentStateDone(string stateName, float normalizedTime)
+    {
+        if (anim == null)
+        {
+            return false;
+        }
+
+        AnimatorStateInfo stateInfo = anim.GetCurrentAnimatorStateInfo(0);
+        return (stateInfo.IsName(stateName) || stateInfo.IsName($"Base Layer.{stateName}"))
+            && stateInfo.normalizedTime >= normalizedTime;
+    }
+
+    private float GetCurrentStateNormalizedTime(string stateName)
+    {
+        if (anim == null || string.IsNullOrEmpty(stateName))
+        {
+            return 0f;
+        }
+
+        AnimatorStateInfo stateInfo = anim.GetCurrentAnimatorStateInfo(0);
+        if (!stateInfo.IsName(stateName) && !stateInfo.IsName($"Base Layer.{stateName}"))
+        {
+            return 0f;
+        }
+
+        return stateInfo.normalizedTime;
     }
 
     private void MoveForward(float speed, bool lockToGround)
@@ -664,101 +791,50 @@ public class DragonExample : MonoBehaviour
 
         state = newState;
         stateInitialized = true;
+        actionLockedUntil = 0f;
 
         switch (state)
         {
-            case DragonRideState.UnmountedIdleRestless:
+            case DragonRideState.Unmounted:
                 SetDragonVelocity(Vector3.zero);
-                SetExclusiveAnimation(idleRestlessHash);
-                ForcePlayState(IdleRestlessParam);
+                currentAnimationState = null;
+                unmountedWakeAnimation = UnmountedWakeAnimation.Sleep;
                 break;
             case DragonRideState.MountedGroundIdle:
+                SetMountedRotationConstraints(false);
+                LevelDragonPitchAndRoll();
                 SetRigidbodyGravity(true);
-                SetExclusiveAnimation(idleSimpleHash);
-                ForcePlayState(IdleSimpleParam);
                 KeepDragonAtGroundY();
+                PlayAnimationState(idleState, true);
                 break;
-            case DragonRideState.MountedGroundWalk:
+            case DragonRideState.MountedGroundMove:
+                SetMountedRotationConstraints(false);
+                LevelDragonPitchAndRoll();
                 SetRigidbodyGravity(true);
-                SetExclusiveAnimation(walkHash);
-                ForcePlayState(WalkParam);
                 KeepDragonAtGroundY();
                 break;
             case DragonRideState.MountedTakeOff:
+                SetMountedRotationConstraints(false);
+                LevelDragonPitchAndRoll();
                 SetRigidbodyGravity(false);
                 SetDragonVelocity(Vector3.zero);
                 takeoffElapsed = 0f;
                 takeoffStartPosition = transform.position;
                 takeoffStartRotation = transform.rotation;
-                SetExclusiveAnimation(takeOffHash);
-                ForcePlayState(TakeOffParam);
+                PlayAnimationState(takeOffState, true);
                 break;
-            case DragonRideState.MountedAirHoverMove:
+            case DragonRideState.MountedAirMove:
+                SetMountedRotationConstraints(true);
                 SetRigidbodyGravity(false);
                 SetDragonVelocity(Vector3.zero);
-                hoverBaseY = transform.position.y;
-                SetAirAnimationMode(AirAnimationMode.HoverIdle);
+                PlayAnimationState(flyFloatState, true);
                 break;
             case DragonRideState.MountedLanding:
+                SetMountedRotationConstraints(false);
+                LevelDragonPitchAndRoll();
                 SetRigidbodyGravity(false);
                 landingElapsed = 0f;
-                landingStartY = transform.position.y;
-                SetExclusiveAnimation(landsHash);
-                ForcePlayState(LandsParam);
-                break;
-        }
-    }
-
-    private void SetExclusiveAnimation(int activeHash)
-    {
-        if (anim == null || allAnimationParams == null)
-        {
-            return;
-        }
-
-        for (int i = 0; i < allAnimationParams.Length; i++)
-        {
-            anim.SetBool(allAnimationParams[i], false);
-        }
-
-        anim.SetBool(activeHash, true);
-    }
-
-    private void ForcePlayState(string stateName)
-    {
-        if (anim == null || string.IsNullOrEmpty(stateName))
-        {
-            return;
-        }
-
-        int stateHash = Animator.StringToHash(stateName);
-        if (!anim.HasState(0, stateHash))
-        {
-            return;
-        }
-
-        anim.CrossFadeInFixedTime(stateName, 0.1f, 0, 0f);
-    }
-
-    private void SetAirAnimationMode(AirAnimationMode newMode)
-    {
-        if (airAnimationModeInitialized && airAnimationMode == newMode)
-        {
-            return;
-        }
-
-        airAnimationMode = newMode;
-        airAnimationModeInitialized = true;
-
-        switch (newMode)
-        {
-            case AirAnimationMode.HoverIdle:
-                SetExclusiveAnimation(hoverHash);
-                ForcePlayState(HoverParam);
-                break;
-            case AirAnimationMode.FlyingForward:
-                SetExclusiveAnimation(flyingFwdHash);
-                ForcePlayState(FlyingFwdParam);
+                PlayAnimationState(landState, true);
                 break;
         }
     }
@@ -825,28 +901,21 @@ public class DragonExample : MonoBehaviour
             SnapRideCamera();
         }
 
-        float airLiftCompensationY = GetCurrentAirLiftCompensationY();
-
         if (mainRideCamera.transform.parent == transform && rideCameraPoseCaptured)
         {
-            Vector3 compensatedLocalOffset = rideCameraLocalOffset;
-            compensatedLocalOffset.y -= airLiftCompensationY;
-            mainRideCamera.transform.localPosition = compensatedLocalOffset;
+            mainRideCamera.transform.localPosition = rideCameraLocalOffset;
             mainRideCamera.transform.localRotation = rideCameraLocalRotation;
             return;
         }
 
         if (rideCameraPoseCaptured)
         {
-            Vector3 capturedPosePosition = transform.TransformPoint(rideCameraLocalOffset);
-            capturedPosePosition.y -= airLiftCompensationY;
-            mainRideCamera.transform.position = capturedPosePosition;
+            mainRideCamera.transform.position = transform.TransformPoint(rideCameraLocalOffset);
             mainRideCamera.transform.rotation = transform.rotation * rideCameraLocalRotation;
             return;
         }
 
         Vector3 desiredPosition = transform.TransformPoint(followCameraOffset);
-        desiredPosition.y -= airLiftCompensationY;
         float smoothFactor = 1f - Mathf.Exp(-Mathf.Max(0.01f, followSmooth) * Time.deltaTime);
         mainRideCamera.transform.position = Vector3.Lerp(mainRideCamera.transform.position, desiredPosition, smoothFactor);
 
@@ -866,13 +935,9 @@ public class DragonExample : MonoBehaviour
             return;
         }
 
-        float airLiftCompensationY = GetCurrentAirLiftCompensationY();
-
         if (mainRideCamera.transform.parent == transform && rideCameraPoseCaptured)
         {
-            Vector3 compensatedLocalOffset = rideCameraLocalOffset;
-            compensatedLocalOffset.y -= airLiftCompensationY;
-            mainRideCamera.transform.localPosition = compensatedLocalOffset;
+            mainRideCamera.transform.localPosition = rideCameraLocalOffset;
             mainRideCamera.transform.localRotation = rideCameraLocalRotation;
             cameraSnapped = true;
             return;
@@ -880,16 +945,13 @@ public class DragonExample : MonoBehaviour
 
         if (rideCameraPoseCaptured)
         {
-            Vector3 capturedPosePosition = transform.TransformPoint(rideCameraLocalOffset);
-            capturedPosePosition.y -= airLiftCompensationY;
-            mainRideCamera.transform.position = capturedPosePosition;
+            mainRideCamera.transform.position = transform.TransformPoint(rideCameraLocalOffset);
             mainRideCamera.transform.rotation = transform.rotation * rideCameraLocalRotation;
             cameraSnapped = true;
             return;
         }
 
         Vector3 desiredPosition = transform.TransformPoint(followCameraOffset);
-        desiredPosition.y -= airLiftCompensationY;
         mainRideCamera.transform.position = desiredPosition;
 
         Vector3 lookTarget = transform.TransformPoint(followLookAtOffset);
@@ -900,16 +962,6 @@ public class DragonExample : MonoBehaviour
         }
 
         cameraSnapped = true;
-    }
-
-    private float GetCurrentAirLiftCompensationY()
-    {
-        //if (state == DragonRideState.MountedAirHoverMove && Input.GetKey(KeyCode.W))
-        //{
-        //    return airForwardLiftY;
-        //}
-
-        return 0f;
     }
 
     private void ResolveDragonRigidbody()
@@ -944,7 +996,7 @@ public class DragonExample : MonoBehaviour
             dragonRigidbody.useGravity = true;
             dragonRigidbody.interpolation = RigidbodyInterpolation.Interpolate;
             dragonRigidbody.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-            dragonRigidbody.constraints = RigidbodyConstraints.FreezeRotationZ;
+            SetMountedRotationConstraints(false);
             dragonRigidbody.velocity = Vector3.zero;
             dragonRigidbody.angularVelocity = Vector3.zero;
         }
@@ -956,6 +1008,24 @@ public class DragonExample : MonoBehaviour
             dragonRigidbody.isKinematic = dragonRigidbodyOriginalIsKinematic;
             dragonRigidbody.constraints = dragonRigidbodyOriginalConstraints;
         }
+    }
+
+    private void SetMountedRotationConstraints(bool allowPitch)
+    {
+        if (dragonRigidbody == null)
+        {
+            return;
+        }
+
+        dragonRigidbody.constraints = allowPitch
+            ? RigidbodyConstraints.FreezeRotationZ
+            : RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+    }
+
+    private void LevelDragonPitchAndRoll()
+    {
+        Vector3 euler = transform.eulerAngles;
+        MoveDragonRotation(Quaternion.Euler(0f, euler.y, 0f));
     }
 
     private void SetRigidbodyGravity(bool useGravity)
@@ -1034,6 +1104,11 @@ public class DragonExample : MonoBehaviour
         return Physics.Raycast(origin, Vector3.down, out hit, Mathf.Max(0.1f, groundCheckDistance), groundMask, QueryTriggerInteraction.Ignore);
     }
 
+    private static bool IsShiftHeld()
+    {
+        return Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+    }
+
     private static float NormalizeAngle(float angle)
     {
         angle %= 360f;
@@ -1048,6 +1123,7 @@ public class DragonExample : MonoBehaviour
 
         return angle;
     }
+
     private static float SmoothStep01(float t)
     {
         t = Mathf.Clamp01(t);
