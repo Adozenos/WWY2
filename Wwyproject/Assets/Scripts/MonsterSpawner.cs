@@ -1,14 +1,17 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.AI;
 
 public class MonsterSpawner : MonoBehaviour
 {
-    [Header("生成设置")]
-    public GameObject[] monsterPrefabs;     // 可以拖入多个不同的龙预制体
-    public Transform[] waypoints;           // 路径点（所有怪物共用）
-    public Transform spawnPoint;            // 生成点
-    public float spawnInterval = 2f;
-    public int maxMonsters = 10;
+    [Header("Spawn Settings")]
+    public GameObject[] monsterPrefabs;
+    public Transform startPointsParent;
+    public Transform targetWall;
+    public Transform wallAttackTarget;
+    public float spawnInterval = 4f;
+    public int maxMonsters = 30;
+    public float spawnSampleRadius = 20f;
 
     private int currentCount = 0;
 
@@ -16,7 +19,12 @@ public class MonsterSpawner : MonoBehaviour
     {
         if (monsterPrefabs == null || monsterPrefabs.Length == 0)
         {
-            Debug.LogError("未设置任何怪物预制体！");
+            Debug.LogError("No monster prefabs assigned to MonsterSpawner.");
+            return;
+        }
+        if (startPointsParent == null)
+        {
+            Debug.LogError("No startPointsParent assigned to MonsterSpawner.");
             return;
         }
         StartCoroutine(SpawnRoutine());
@@ -34,48 +42,76 @@ public class MonsterSpawner : MonoBehaviour
 
     void SpawnMonster()
     {
-        // 随机选取一个预制体
         GameObject prefab = monsterPrefabs[Random.Range(0, monsterPrefabs.Length)];
-        Vector3 pos = spawnPoint ? spawnPoint.position : transform.position;
 
-        GameObject monster = Instantiate(prefab, pos, Quaternion.identity);
-
-        // 获取移动组件（可能为地面或空中版本）
-        MonsterPathFollower groundFollower = monster.GetComponent<MonsterPathFollower>();
-        AirMonsterFollower airFollower = monster.GetComponent<AirMonsterFollower>();
-
-        if (groundFollower != null)
+        int childCount = startPointsParent.childCount;
+        if (childCount == 0)
         {
-            groundFollower.waypoints = waypoints;
-            groundFollower.spawner = this;
+            Debug.LogError("startPointsParent has no child spawn points.");
+            return;
         }
-        else if (airFollower != null)
+        Transform spawnPoint = startPointsParent.GetChild(Random.Range(0, childCount));
+        Vector3 pos = spawnPoint.position;
+        bool sampledSpawn = NavMesh.SamplePosition(spawnPoint.position, out NavMeshHit spawnHit, spawnSampleRadius, NavMesh.AllAreas);
+        if (sampledSpawn)
         {
-            airFollower.waypoints = waypoints;
-            airFollower.spawner = this;
+            pos = spawnHit.position;
         }
         else
         {
-            Debug.LogWarning("怪物预制体上没有挂载任何移动脚本！");
+            Debug.LogWarning($"MonsterSpawner could not find NavMesh within {spawnSampleRadius} units of spawn point {spawnPoint.name}. Spawning at the original point.", spawnPoint);
+        }
+
+        Transform target = wallAttackTarget != null ? wallAttackTarget : targetWall;
+        Quaternion spawnRotation = GetSpawnRotation(pos, spawnPoint, target);
+        GameObject monster = Instantiate(prefab, pos, spawnRotation);
+
+        GroundInvader groundInvader = monster.GetComponent<GroundInvader>();
+        FlyingInvader flyingInvader = monster.GetComponent<FlyingInvader>();
+
+        if (groundInvader != null)
+        {
+            groundInvader.targetWall = target;
+            groundInvader.spawner = this;
+        }
+        else if (flyingInvader != null)
+        {
+            flyingInvader.targetWall = target;
+            flyingInvader.spawner = this;
+        }
+        else
+        {
+            Debug.LogWarning("Monster prefab has no GroundInvader or FlyingInvader script.");
         }
 
         currentCount++;
     }
 
-    // 到达终点回调
+    Quaternion GetSpawnRotation(Vector3 spawnPosition, Transform spawnPoint, Transform target)
+    {
+        if (target != null)
+        {
+            Vector3 toTarget = target.position - spawnPosition;
+            toTarget.y = 0f;
+            if (toTarget.sqrMagnitude > 0.0001f)
+                return Quaternion.LookRotation(toTarget.normalized, Vector3.up);
+        }
+
+        return spawnPoint != null ? spawnPoint.rotation : Quaternion.identity;
+    }
+
+    public void OnMonsterDestroyed()
+    {
+        currentCount--;
+    }
+
+    // Legacy support for old scripts
     public void OnMonsterReachDestination(MonsterPathFollower monster)
     {
         currentCount--;
     }
 
-    // 空中怪物也复用同一个回调（重载或统一调用）
     public void OnMonsterReachDestination(AirMonsterFollower monster)
-    {
-        currentCount--;
-    }
-
-    // 销毁时降计数
-    public void OnMonsterDestroyed()
     {
         currentCount--;
     }

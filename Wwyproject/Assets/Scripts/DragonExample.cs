@@ -104,6 +104,7 @@ public class DragonExample : MonoBehaviour
     private Quaternion rideCameraLocalRotation;
     private Transform mainRideCameraOriginalParent;
     private bool mainRideCameraOriginalParentCaptured;
+    private float cameraPitch;
 
     private float groundY;
     private Vector3 takeoffStartPosition;
@@ -366,6 +367,7 @@ public class DragonExample : MonoBehaviour
         groundY = transform.position.y;
         ConfigureMountedRigidbody(true);
         SetMountedCameraMode(true, true);
+        cameraPitch = 0f;
         EnterState(DragonRideState.MountedGroundIdle);
     }
 
@@ -416,7 +418,7 @@ public class DragonExample : MonoBehaviour
     private void HandleMountedRotation()
     {
         float yawInput = Input.GetAxis("Mouse X");
-        float pitchInput = state == DragonRideState.MountedAirMove ? Input.GetAxis("Mouse Y") : 0f;
+        float pitchInput = Input.GetAxis("Mouse Y");
         if (Mathf.Abs(yawInput) < 0.0001f && Mathf.Abs(pitchInput) < 0.0001f)
         {
             return;
@@ -428,11 +430,13 @@ public class DragonExample : MonoBehaviour
 
         if (state == DragonRideState.MountedAirMove)
         {
+            cameraPitch = 0f;
             pitch = Mathf.Clamp(pitch - pitchInput * pitchSpeed * Time.deltaTime, -maxPitchAngle, maxPitchAngle);
         }
         else
         {
             pitch = Mathf.MoveTowards(pitch, 0f, pitchSpeed * Time.deltaTime);
+            cameraPitch = Mathf.Clamp(cameraPitch - pitchInput * pitchSpeed * Time.deltaTime, -60f, 60f);
         }
 
         MoveDragonRotation(Quaternion.Euler(pitch, yaw, 0f));
@@ -904,7 +908,7 @@ public class DragonExample : MonoBehaviour
         if (mainRideCamera.transform.parent == transform && rideCameraPoseCaptured)
         {
             mainRideCamera.transform.localPosition = rideCameraLocalOffset;
-            mainRideCamera.transform.localRotation = rideCameraLocalRotation;
+            mainRideCamera.transform.localRotation = rideCameraLocalRotation * Quaternion.Euler(cameraPitch, 0f, 0f);
             return;
         }
 
