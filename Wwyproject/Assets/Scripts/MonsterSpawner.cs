@@ -6,31 +6,28 @@ public class MonsterSpawner : MonoBehaviour
 {
     [Header("Spawn Settings")]
     public GameObject[] monsterPrefabs;
-    public Transform startPointsParent;
-    public Transform targetWall;
-    public Transform wallAttackTarget;
-    public float spawnInterval = 4f;
-    public int maxMonsters = 30;
+    public Transform[] waypoints;
+    public Transform spawnPoint;
+    public Transform[] spawnPoints;
     public float spawnSampleRadius = 20f;
+    public WallAttackTargetManager wallAttackTargetManager;
+    public float spawnInterval = 2f;
+    public int maxMonsters = 10;
 
-    private int currentCount = 0;
+    private int currentCount;
 
-    void Start()
+    private void Start()
     {
         if (monsterPrefabs == null || monsterPrefabs.Length == 0)
         {
-            Debug.LogError("No monster prefabs assigned to MonsterSpawner.");
+            Debug.LogError("MonsterSpawner has no monster prefabs assigned.", this);
             return;
         }
-        if (startPointsParent == null)
-        {
-            Debug.LogError("No startPointsParent assigned to MonsterSpawner.");
-            return;
-        }
+
         StartCoroutine(SpawnRoutine());
     }
 
-    IEnumerator SpawnRoutine()
+    private IEnumerator SpawnRoutine()
     {
         while (true)
         {
@@ -40,79 +37,128 @@ public class MonsterSpawner : MonoBehaviour
         }
     }
 
-    void SpawnMonster()
+    private void SpawnMonster()
     {
         GameObject prefab = monsterPrefabs[Random.Range(0, monsterPrefabs.Length)];
+        Transform selectedSpawnPoint = GetRandomSpawnPoint();
+        Vector3 requestedPosition = selectedSpawnPoint != null ? selectedSpawnPoint.position : transform.position;
+        Vector3 spawnPosition = GetNavMeshSpawnPosition(requestedPosition);
+        Transform attackTarget = wallAttackTargetManager != null
+            ? wallAttackTargetManager.GetRandomTarget(spawnPosition)
+            : null;
+        Quaternion spawnRotation = GetSpawnRotation(spawnPosition, attackTarget, selectedSpawnPoint);
 
-        int childCount = startPointsParent.childCount;
-        if (childCount == 0)
-        {
-            Debug.LogError("startPointsParent has no child spawn points.");
-            return;
-        }
-        Transform spawnPoint = startPointsParent.GetChild(Random.Range(0, childCount));
-        Vector3 pos = spawnPoint.position;
-        bool sampledSpawn = NavMesh.SamplePosition(spawnPoint.position, out NavMeshHit spawnHit, spawnSampleRadius, NavMesh.AllAreas);
-        if (sampledSpawn)
-        {
-            pos = spawnHit.position;
-        }
-        else
-        {
-            Debug.LogWarning($"MonsterSpawner could not find NavMesh within {spawnSampleRadius} units of spawn point {spawnPoint.name}. Spawning at the original point.", spawnPoint);
-        }
-
-        Transform target = wallAttackTarget != null ? wallAttackTarget : targetWall;
-        Quaternion spawnRotation = GetSpawnRotation(pos, spawnPoint, target);
-        GameObject monster = Instantiate(prefab, pos, spawnRotation);
-
-        GroundInvader groundInvader = monster.GetComponent<GroundInvader>();
-        FlyingInvader flyingInvader = monster.GetComponent<FlyingInvader>();
-
-        if (groundInvader != null)
-        {
-            groundInvader.targetWall = target;
-            groundInvader.spawner = this;
-        }
-        else if (flyingInvader != null)
-        {
-            flyingInvader.targetWall = target;
-            flyingInvader.spawner = this;
-        }
-        else
-        {
-            Debug.LogWarning("Monster prefab has no GroundInvader or FlyingInvader script.");
-        }
+        GameObject monster = Instantiate(prefab, spawnPosition, spawnRotation);
+        EnsureMonsterHealth(monster);
+        ConfigureMonsterMovement(monster, attackTarget);
 
         currentCount++;
     }
 
-    Quaternion GetSpawnRotation(Vector3 spawnPosition, Transform spawnPoint, Transform target)
+    private Transform GetRandomSpawnPoint()
     {
-        if (target != null)
+        if (spawnPoints != null && spawnPoints.Length > 0)
         {
-            Vector3 toTarget = target.position - spawnPosition;
-            toTarget.y = 0f;
-            if (toTarget.sqrMagnitude > 0.0001f)
-                return Quaternion.LookRotation(toTarget.normalized, Vector3.up);
+            int startIndex = Random.Range(0, spawnPoints.Length);
+            for (int i = 0; i < spawnPoints.Length; i++)
+            {
+                Transform candidate = spawnPoints[(startIndex + i) % spawnPoints.Length];
+                if (candidate != null)
+                    return candidate;
+            }
         }
 
-        return spawnPoint != null ? spawnPoint.rotation : Quaternion.identity;
+        return spawnPoint;
     }
 
-    public void OnMonsterDestroyed()
+    private Vector3 GetNavMeshSpawnPosition(Vector3 requestedPosition)
     {
-        currentCount--;
+        if (NavMesh.SamplePosition(requestedPosition, out NavMeshHit hit, spawnSampleRadius, NavMesh.AllAreas))
+            return hit.position;
+
+        Debug.LogWarning($"MonsterSpawner could not find NavMesh near spawn point {requestedPosition} within {spawnSampleRadius} units. Using raw spawn position.", this);
+        return requestedPosition;
     }
 
-    // Legacy support for old scripts
+    private Quaternion GetSpawnRotation(Vector3 spawnPosition, Transform attackTarget, Transform selectedSpawnPoint)
+    {
+        if (attackTarget != null)
+        {
+            Vector3 direction = attackTarget.position - spawnPosition;
+            direction.y = 0f;
+            if (direction.sqrMagnitude > 0.0001f)
+                return Quaternion.LookRotation(direction.normalized, Vector3.up);
+        }
+
+        return selectedSpawnPoint != null ? selectedSpawnPoint.rotation : transform.rotation;
+    }
+
+    private void EnsureMonsterHealth(GameObject monster)
+    {
+        if (monster != null && monster.GetComponent<MonsterHealth>() == null)
+            monster.AddComponent<MonsterHealth>();
+    }
+
+    private void ConfigureMonsterMovement(GameObject monster, Transform attackTarget)
+    {
+        if (monster == null)
+            return;
+
+        MonsterPathFollower groundFollower = monster.GetComponent<MonsterPathFollower>();
+        if (groundFollower != null)
+        {
+            groundFollower.waypoints = waypoints;
+            groundFollower.spawner = this;
+            return;
+        }
+
+        AirMonsterFollower airFollower = monster.GetComponent<AirMonsterFollower>();
+        if (airFollower != null)
+        {
+            airFollower.waypoints = waypoints;
+            airFollower.spawner = this;
+            return;
+        }
+
+        GroundInvader groundInvader = monster.GetComponent<GroundInvader>();
+        if (groundInvader != null)
+        {
+            groundInvader.spawner = this;
+            groundInvader.targetWall = attackTarget;
+            WarnIfMissingTarget(attackTarget, monster);
+            return;
+        }
+
+        FlyingInvader flyingInvader = monster.GetComponent<FlyingInvader>();
+        if (flyingInvader != null)
+        {
+            flyingInvader.spawner = this;
+            flyingInvader.targetWall = attackTarget;
+            WarnIfMissingTarget(attackTarget, monster);
+            return;
+        }
+
+        Debug.LogWarning("Monster prefab has no supported movement script.", monster);
+    }
+
+    private void WarnIfMissingTarget(Transform attackTarget, GameObject monster)
+    {
+        if (attackTarget == null)
+            Debug.LogWarning("MonsterSpawner could not assign a wall attack target. Check WallAttackTargetManager.attackWalls and nearby NavMesh.", monster);
+    }
+
     public void OnMonsterReachDestination(MonsterPathFollower monster)
     {
-        currentCount--;
+        currentCount = Mathf.Max(0, currentCount - 1);
     }
 
     public void OnMonsterReachDestination(AirMonsterFollower monster)
     {
-        currentCount--;
+        currentCount = Mathf.Max(0, currentCount - 1);
+    }
+
+    public void OnMonsterDestroyed()
+    {
+        currentCount = Mathf.Max(0, currentCount - 1);
     }
 }

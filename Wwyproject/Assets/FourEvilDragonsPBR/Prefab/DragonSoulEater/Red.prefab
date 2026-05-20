@@ -580,17 +580,29 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   targetWall: {fileID: 0}
+  targetSampleRadius: 100
   spawner: {fileID: 0}
   flyForwardDistance: 40
   hoverDistance: 15
   groundRunDistance: 10
   groundRunSpeed: 6
-  glideSpeed: 16
+  glideSpeed: 160
   flyForwardSpeed: 10
+  rotationSpeed: 4
   flightHeight: 20
+  minGroundClearance: 12
   takeoffDuration: 1.5
   takeoffRiseSpeed: 8
+  heightAdjustSpeed: 12
+  obstacleMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  obstacleCheckDistance: 35
+  obstacleCheckRadius: 3
+  obstacleClearance: 18
+  groundProbeHeight: 120
   fireballInterval: 3
+  fireballAnimDuration: 1.2
   runState: Run
   takeOffState: Take Off
   flyGlideState: Fly Glide

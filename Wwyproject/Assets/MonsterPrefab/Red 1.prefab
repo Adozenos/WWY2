@@ -559,7 +559,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   waypoints: []
   spawner: {fileID: 0}
-  speed: 12
+  speed: 6
   rotationSpeed: 5
   heightOffset: 8
   groundCheckHeight: 0

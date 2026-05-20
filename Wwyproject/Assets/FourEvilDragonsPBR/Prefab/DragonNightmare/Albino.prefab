@@ -97,7 +97,7 @@ MonoBehaviour:
   runDistance: 30
   walkDistance: 10
   attackRange: 3
-  runSpeed: 8
+  runSpeed: 100
   walkSpeed: 3
   runState: Run
   walkState: Walk

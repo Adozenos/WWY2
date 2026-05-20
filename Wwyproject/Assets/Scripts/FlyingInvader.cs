@@ -16,7 +16,7 @@ public class FlyingInvader : MonoBehaviour
     public float groundRunDistance = 10f;
 
     [Header("Speeds")]
-    public float groundRunSpeed = 6f;
+    public float groundRunSpeed = 60f;
     public float glideSpeed = 16f;
     public float flyForwardSpeed = 10f;
     public float rotationSpeed = 4f;

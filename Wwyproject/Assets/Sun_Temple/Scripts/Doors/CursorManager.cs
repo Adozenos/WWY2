@@ -18,7 +18,11 @@ namespace SunTemple{
 
 		void Awake () {
 			instance = this;
-			img = GetComponent<UnityEngine.UI.Image> ();						
+			img = GetComponent<UnityEngine.UI.Image> ();
+
+			if (img != null && img.sprite != null) {
+				defaultCursor = img.sprite;
+			}
 		}
 
 

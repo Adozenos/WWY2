@@ -17,7 +17,7 @@ public class GroundInvader : MonoBehaviour
     public float attackRange = 3f;
 
     [Header("Speeds")]
-    public float runSpeed = 8f;
+    public float runSpeed = 80f;
     public float walkSpeed = 3f;
 
     [Header("Animation States")]
@@ -48,6 +48,7 @@ public class GroundInvader : MonoBehaviour
     private Vector3 currentDestination;
     private bool destinationSet;
     private float lastScreamTime = -999f;
+    private bool externalAnimationControl;
 
     private enum State { Run, Walk, Attack }
     private State currentState;
@@ -71,6 +72,9 @@ public class GroundInvader : MonoBehaviour
 
     void Update()
     {
+        if (externalAnimationControl)
+            return;
+
         if (targetWall == null) return;
         if (animator == null) return;
         if (player == null)
@@ -136,6 +140,24 @@ public class GroundInvader : MonoBehaviour
                     EnterState(State.Walk);
                 break;
         }
+    }
+
+    public void BeginExternalAnimationControl()
+    {
+        externalAnimationControl = true;
+        isScreaming = false;
+        StopMovement();
+    }
+
+    public void EndExternalAnimationControl()
+    {
+        externalAnimationControl = false;
+        currentAnimationState = null;
+
+        if (!useDirectMovement && agent != null && agent.enabled && agent.isOnNavMesh)
+            agent.isStopped = false;
+
+        EnterState(currentState);
     }
 
     void EnterState(State newState)
