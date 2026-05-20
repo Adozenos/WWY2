@@ -63,6 +63,11 @@ public class Monster : MonoBehaviour
     }
     public void Die()
     {
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.OnMonsterDefeated();
+        }
+
         if (isAlive == false) return;
         isAlive = false;
         ani.SetBool("IsWalk", false);
@@ -112,7 +117,7 @@ public class Monster : MonoBehaviour
     {
         Debug.Log("exit");
 
-        if (other.CompareTag("Player"))
+        if (other.CompareTag("WanJia"))
         {
             go = null;
         }
