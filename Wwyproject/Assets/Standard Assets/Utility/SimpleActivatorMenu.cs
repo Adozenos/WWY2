@@ -1,13 +1,14 @@
 using System;
 using UnityEngine;
-using UnityEngine.UI;
+using UnityEngine.UI;  // 加这一行
+
 namespace UnityStandardAssets.Utility
 {
     public class SimpleActivatorMenu : MonoBehaviour
     {
         // An incredibly simple menu which, when given references
         // to gameobjects in the scene
-        public Text camSwitchButton;
+        public Text camSwitchButton;  // 把 GUIText 改成 Text
         public GameObject[] objects;
 
 

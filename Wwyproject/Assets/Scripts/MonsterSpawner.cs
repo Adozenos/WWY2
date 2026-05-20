@@ -1,33 +1,28 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.AI;
 
 public class MonsterSpawner : MonoBehaviour
 {
-    [Header("Spawn Settings")]
-    public GameObject[] monsterPrefabs;
-    public Transform[] waypoints;
-    public Transform spawnPoint;
-    public Transform[] spawnPoints;
-    public float spawnSampleRadius = 20f;
-    public WallAttackTargetManager wallAttackTargetManager;
+    [Header("生成设置")]
+    public GameObject[] monsterPrefabs;     // 可以拖入多个不同的龙预制体
+    public Transform[] waypoints;           // 路径点（所有怪物共用）
+    public Transform spawnPoint;            // 生成点
     public float spawnInterval = 2f;
     public int maxMonsters = 10;
 
-    private int currentCount;
+    private int currentCount = 0;
 
-    private void Start()
+    void Start()
     {
         if (monsterPrefabs == null || monsterPrefabs.Length == 0)
         {
-            Debug.LogError("MonsterSpawner has no monster prefabs assigned.", this);
+            Debug.LogError("未设置任何怪物预制体！");
             return;
         }
-
         StartCoroutine(SpawnRoutine());
     }
 
-    private IEnumerator SpawnRoutine()
+    IEnumerator SpawnRoutine()
     {
         while (true)
         {
@@ -37,128 +32,51 @@ public class MonsterSpawner : MonoBehaviour
         }
     }
 
-    private void SpawnMonster()
+    void SpawnMonster()
     {
+        // 随机选取一个预制体
         GameObject prefab = monsterPrefabs[Random.Range(0, monsterPrefabs.Length)];
-        Transform selectedSpawnPoint = GetRandomSpawnPoint();
-        Vector3 requestedPosition = selectedSpawnPoint != null ? selectedSpawnPoint.position : transform.position;
-        Vector3 spawnPosition = GetNavMeshSpawnPosition(requestedPosition);
-        Transform attackTarget = wallAttackTargetManager != null
-            ? wallAttackTargetManager.GetRandomTarget(spawnPosition)
-            : null;
-        Quaternion spawnRotation = GetSpawnRotation(spawnPosition, attackTarget, selectedSpawnPoint);
+        Vector3 pos = spawnPoint ? spawnPoint.position : transform.position;
 
-        GameObject monster = Instantiate(prefab, spawnPosition, spawnRotation);
-        EnsureMonsterHealth(monster);
-        ConfigureMonsterMovement(monster, attackTarget);
+        GameObject monster = Instantiate(prefab, pos, Quaternion.identity);
 
-        currentCount++;
-    }
-
-    private Transform GetRandomSpawnPoint()
-    {
-        if (spawnPoints != null && spawnPoints.Length > 0)
-        {
-            int startIndex = Random.Range(0, spawnPoints.Length);
-            for (int i = 0; i < spawnPoints.Length; i++)
-            {
-                Transform candidate = spawnPoints[(startIndex + i) % spawnPoints.Length];
-                if (candidate != null)
-                    return candidate;
-            }
-        }
-
-        return spawnPoint;
-    }
-
-    private Vector3 GetNavMeshSpawnPosition(Vector3 requestedPosition)
-    {
-        if (NavMesh.SamplePosition(requestedPosition, out NavMeshHit hit, spawnSampleRadius, NavMesh.AllAreas))
-            return hit.position;
-
-        Debug.LogWarning($"MonsterSpawner could not find NavMesh near spawn point {requestedPosition} within {spawnSampleRadius} units. Using raw spawn position.", this);
-        return requestedPosition;
-    }
-
-    private Quaternion GetSpawnRotation(Vector3 spawnPosition, Transform attackTarget, Transform selectedSpawnPoint)
-    {
-        if (attackTarget != null)
-        {
-            Vector3 direction = attackTarget.position - spawnPosition;
-            direction.y = 0f;
-            if (direction.sqrMagnitude > 0.0001f)
-                return Quaternion.LookRotation(direction.normalized, Vector3.up);
-        }
-
-        return selectedSpawnPoint != null ? selectedSpawnPoint.rotation : transform.rotation;
-    }
-
-    private void EnsureMonsterHealth(GameObject monster)
-    {
-        if (monster != null && monster.GetComponent<MonsterHealth>() == null)
-            monster.AddComponent<MonsterHealth>();
-    }
-
-    private void ConfigureMonsterMovement(GameObject monster, Transform attackTarget)
-    {
-        if (monster == null)
-            return;
-
+        // 获取移动组件（可能为地面或空中版本）
         MonsterPathFollower groundFollower = monster.GetComponent<MonsterPathFollower>();
+        AirMonsterFollower airFollower = monster.GetComponent<AirMonsterFollower>();
+
         if (groundFollower != null)
         {
             groundFollower.waypoints = waypoints;
             groundFollower.spawner = this;
-            return;
         }
-
-        AirMonsterFollower airFollower = monster.GetComponent<AirMonsterFollower>();
-        if (airFollower != null)
+        else if (airFollower != null)
         {
             airFollower.waypoints = waypoints;
             airFollower.spawner = this;
-            return;
         }
-
-        GroundInvader groundInvader = monster.GetComponent<GroundInvader>();
-        if (groundInvader != null)
+        else
         {
-            groundInvader.spawner = this;
-            groundInvader.targetWall = attackTarget;
-            WarnIfMissingTarget(attackTarget, monster);
-            return;
+            Debug.LogWarning("怪物预制体上没有挂载任何移动脚本！");
         }
 
-        FlyingInvader flyingInvader = monster.GetComponent<FlyingInvader>();
-        if (flyingInvader != null)
-        {
-            flyingInvader.spawner = this;
-            flyingInvader.targetWall = attackTarget;
-            WarnIfMissingTarget(attackTarget, monster);
-            return;
-        }
-
-        Debug.LogWarning("Monster prefab has no supported movement script.", monster);
+        currentCount++;
     }
 
-    private void WarnIfMissingTarget(Transform attackTarget, GameObject monster)
-    {
-        if (attackTarget == null)
-            Debug.LogWarning("MonsterSpawner could not assign a wall attack target. Check WallAttackTargetManager.attackWalls and nearby NavMesh.", monster);
-    }
-
+    // 到达终点回调
     public void OnMonsterReachDestination(MonsterPathFollower monster)
     {
-        currentCount = Mathf.Max(0, currentCount - 1);
+        currentCount--;
     }
 
+    // 空中怪物也复用同一个回调（重载或统一调用）
     public void OnMonsterReachDestination(AirMonsterFollower monster)
     {
-        currentCount = Mathf.Max(0, currentCount - 1);
+        currentCount--;
     }
 
+    // 销毁时降计数
     public void OnMonsterDestroyed()
     {
-        currentCount = Mathf.Max(0, currentCount - 1);
+        currentCount--;
     }
 }
