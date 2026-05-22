@@ -498,7 +498,6 @@ GameObject:
   m_Component:
   - component: {fileID: 459364}
   - component: {fileID: 9585228}
-  - component: {fileID: -8978885722965368045}
   - component: {fileID: -7572083815743522004}
   m_Layer: 7
   m_Name: Red 1
@@ -545,28 +544,6 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!114 &-8978885722965368045
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 130416}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ed6d9c6899871d54d8b30d398441d20e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  waypoints: []
-  spawner: {fileID: 0}
-  speed: 6
-  rotationSpeed: 5
-  heightOffset: 8
-  groundCheckHeight: 0
-  groundCheckDistance: 20
-  groundLayer:
-    serializedVersion: 2
-    m_Bits: 64
 --- !u!65 &-7572083815743522004
 BoxCollider:
   m_ObjectHideFlags: 0

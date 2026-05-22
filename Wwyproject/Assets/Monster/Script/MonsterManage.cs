@@ -7,6 +7,7 @@ public class MonsterManage : MonoBehaviour
     // Start is called before the first frame update
     public static MonsterManage instance { get; private set; }
     public List<Monster> monsterList = new List<Monster>();
+    public List<FlyMonster> flyMonsterList = new List<FlyMonster>();
     private void Awake()
     {
         instance = this;

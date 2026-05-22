@@ -287,7 +287,7 @@ public class DragonExample : MonoBehaviour
         }
 
         rideCameraLocalOffset = transform.InverseTransformPoint(mainRideCamera.transform.position);
-        rideCameraLocalRotation = Quaternion.Inverse(transform.rotation) * mainRideCamera.transform.rotation;
+        rideCameraLocalRotation = RemoveCameraRoll(Quaternion.Inverse(transform.rotation) * mainRideCamera.transform.rotation);
         rideCameraPoseCaptured = true;
     }
 
@@ -445,10 +445,6 @@ public class DragonExample : MonoBehaviour
                 groundRideCameraPitch - groundCameraPitchInput * groundCameraPitchSpeed * Time.deltaTime,
                 -maxGroundCameraPitchAngle,
                 maxGroundCameraPitchAngle);
-        }
-        else if (Mathf.Abs(groundRideCameraPitch) > 0.0001f)
-        {
-            groundRideCameraPitch = 0f;
         }
 
         if (Mathf.Abs(yawInput) < 0.0001f && Mathf.Abs(pitchInput) < 0.0001f)
@@ -760,10 +756,13 @@ public class DragonExample : MonoBehaviour
             direction = transform.forward;
 
         Quaternion spawnRotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
-        GameObject fireball = Instantiate(fireballPrefab, spawnPosition, spawnRotation);
-        DragonFireballProjectile projectile = fireball.GetComponent<DragonFireballProjectile>();
-        if (projectile != null)
-            projectile.Initialize(direction, fireballSpeed, fireballLifetime, gameObject);
+        if (MonsterManage.instance.monsterList.Count > 0 || MonsterManage.instance.flyMonsterList.Count > 0)
+        {
+            GameObject fireball = Instantiate(fireballPrefab, spawnPosition, spawnRotation);
+            DragonFireballProjectile projectile = fireball.GetComponent<DragonFireballProjectile>();
+            if (projectile != null)
+                projectile.Initialize(direction, fireballSpeed, fireballLifetime, gameObject);
+        }
     }
 
     private Vector3 GetFireballSpawnPosition()
@@ -1095,12 +1094,24 @@ public class DragonExample : MonoBehaviour
 
     private Quaternion GetRideCameraLocalRotation()
     {
+        Quaternion baseRotation = rideCameraLocalRotation;
         if (!IsMountedGroundState() || Mathf.Abs(groundRideCameraPitch) < 0.0001f)
         {
-            return rideCameraLocalRotation;
+            return baseRotation;
         }
 
-        return rideCameraLocalRotation * Quaternion.Euler(groundRideCameraPitch, 0f, 0f);
+        return baseRotation * Quaternion.Euler(groundRideCameraPitch, 0f, 0f);
+    }
+
+    private Quaternion RemoveCameraRoll(Quaternion localRotation)
+    {
+        Vector3 forward = localRotation * Vector3.forward;
+        if (forward.sqrMagnitude <= 0.0001f)
+        {
+            return Quaternion.identity;
+        }
+
+        return Quaternion.LookRotation(forward.normalized, Vector3.up);
     }
 
     private void ResolveDragonRigidbody()
@@ -1269,3 +1280,4 @@ public class DragonExample : MonoBehaviour
         return t * t * (3f - 2f * t);
     }
 }
+//GameObject.Instantiate

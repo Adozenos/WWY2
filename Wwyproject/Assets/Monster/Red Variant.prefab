@@ -90,15 +90,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 409566, guid: c1b98d78ae770ae4e85f6b82b68e4111, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 3.97
+      value: -46.21443
       objectReference: {fileID: 0}
     - target: {fileID: 409566, guid: c1b98d78ae770ae4e85f6b82b68e4111, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -72.71
+      value: 7.1232643
       objectReference: {fileID: 0}
     - target: {fileID: 409566, guid: c1b98d78ae770ae4e85f6b82b68e4111, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -474.1
+      value: -208.74892
       objectReference: {fileID: 0}
     - target: {fileID: 409566, guid: c1b98d78ae770ae4e85f6b82b68e4111, type: 3}
       propertyPath: m_LocalRotation.w
@@ -935,7 +935,7 @@ Rigidbody:
     m_Bits: 0
   m_ImplicitCom: 1
   m_ImplicitTensor: 1
-  m_UseGravity: 0
+  m_UseGravity: 1
   m_IsKinematic: 1
   m_Interpolate: 0
   m_Constraints: 0
@@ -959,6 +959,11 @@ MonoBehaviour:
   ani: {fileID: 4770002896651633637}
   HP: 100
   isAlive: 1
+  AtcValue: 35
+  atackRange: 10
+  chaseRange: 15
+  walkSpeed: 5
+  runSpeed: 30
   go: {fileID: 0}
 --- !u!95 &4770002896651633637 stripped
 Animator:

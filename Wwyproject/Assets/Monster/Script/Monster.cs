@@ -13,6 +13,11 @@ public class Monster : MonoBehaviour
     public Animator ani;
     public float HP = 100;
     public bool isAlive=true;
+    public float AtcValue;
+    public float atackRange;
+    public float chaseRange;
+    public float walkSpeed;
+    public float runSpeed;
     enum MoveState
     {
         Idle,
@@ -42,14 +47,14 @@ public class Monster : MonoBehaviour
     }
     public void TransitionToWalk()
     {
-        navMesh.speed = 3f;
+        navMesh.speed = walkSpeed;
         ani.SetBool("IsWalk", true);
         ani.SetBool("IsRun", false);
         ani.SetBool("IsAtack", false);
     }
     public void TransitionToun()
     {
-        navMesh.speed = 10f;
+        navMesh.speed = runSpeed;
         ani.SetBool("IsWalk", true);
         ani.SetBool("IsRun", true);
         ani.SetBool("IsAtack", false);
@@ -63,11 +68,6 @@ public class Monster : MonoBehaviour
     }
     public void Die()
     {
-        if (UIManager.Instance != null)
-        {
-            UIManager.Instance.OnMonsterDefeated();
-        }
-
         if (isAlive == false) return;
         isAlive = false;
         ani.SetBool("IsWalk", false);
@@ -82,68 +82,63 @@ public class Monster : MonoBehaviour
     {
         ChoseTarget();
         navMesh.SetDestination(target.transform.position);
-        if (Vector3.Distance(transform.position, target.transform.position) >= 30)
+        if (Vector3.Distance(transform.position, target.transform.position) >= chaseRange)
         {
             moveState = MoveState.run;
             TransitionToun();
         }
-        else if (Vector3.Distance(transform.position, target.transform.position) < 30 &&
-            Vector3.Distance(transform.position, target.transform.position) >= 8)
+        else if (Vector3.Distance(transform.position, target.transform.position) < chaseRange &&
+            Vector3.Distance(transform.position, target.transform.position) >= atackRange)
         {
             moveState = MoveState.run;
             TransitionToWalk();
         }
-        else if (Vector3.Distance(transform.position, target.transform.position) < 8)
+        else if (Vector3.Distance(transform.position, target.transform.position) < atackRange)
         {
             TransitionToAtack();
         }
     }
 
     public GameObject go;
-    private void OnTriggerEnter(Collider other)
-    {
-        Debug.Log("enter");
+    //private void OnTriggerEnter(Collider other)
+    //{
+    //    Debug.Log("enter");
 
-        if (other.CompareTag("WanJia"))
-        {
-            go = other.gameObject;
-        }
-        if (other.CompareTag("Wall"))
-        {
-            go = other.gameObject;
-        }
-    }
-    private void OnTriggerExit(Collider other)
-    {
-        Debug.Log("exit");
+    //    if (other.CompareTag("WanJia"))
+    //    {
+    //        go = other.gameObject;
+    //    }
+    //    if (other.CompareTag("Wall"))
+    //    {
+    //        go = other.gameObject;
+    //    }
+    //}
+    //private void OnTriggerExit(Collider other)
+    //{
+    //    Debug.Log("exit");
 
-        if (other.CompareTag("WanJia"))
-        {
-            go = null;
-        }
-        if (other.CompareTag("Wall")&&target.gameObject!=go)
-        {
-            go = null;
-        }
+    //    if (other.CompareTag("Player"))
+    //    {
+    //        go = null;
+    //    }
+    //    if (other.CompareTag("Wall")&&target.gameObject!=go)
+    //    {
+    //        go = null;
+    //    }
 
-    }
+    //}
     public void TackDamage()
     {
-       // Debug.Log("TackDamage");
-        if (go == null) return;
-            if (go == player.gameObject)
-                player.HP -= 20;
-            foreach(Wall w in WallManager.instance.wallList)
-        {
-            if (go == w.gameObject)
-            {
-                w.HP -= 20;
-            }
-        }
+        // Debug.Log("TackDamage");
+        transform.LookAt(target.transform);
+        Player p = target.GetComponent<Player>();
+        Wall w = target.GetComponent<Wall>();
+        if (p) p.HP -= AtcValue;
+        if (w) w.HP -= AtcValue;
     }
     public void ChoseTarget()
     {
-        float minDistance=1000;
+        float minDistance=10000;
         foreach (Wall w in WallManager.instance.wallList)
         {
             if (Vector3.Distance(this.transform.position, w.gameObject.transform.position) < minDistance)
