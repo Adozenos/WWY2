@@ -1,8 +1,10 @@
 ﻿using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public class MonsterMissionTaskUI : MonoBehaviour
 {
+    public GameObject canvas;
     [Header("Mission")]
     [SerializeField] private MonsterSpawner monsterSpawner;
     [SerializeField] private Button startButton;
@@ -44,14 +46,32 @@ public class MonsterMissionTaskUI : MonoBehaviour
 
     private void Update()
     {
+        if (wallHealthBar==null|| monsterCountText==null) 
+        {
+        GameObject[] all =
+    FindObjectsByType<GameObject>(
+        FindObjectsInactive.Include,
+        FindObjectsSortMode.None);
+        foreach (GameObject t in all)
+        {
+            if ((t.name == "HouseUIManager"))
+            {
+                wallHealthBar = t;
+            }
+            if (t.name == "MonsterCountText")
+            {
+                monsterCountText = t.GetComponent<Text>();
+            }
+        } }
         if (!missionRunning)
-            return;
+                return;
 
-        int monsterCount = GetCurrentMonsterCount();
-        UpdateMonsterCountText(monsterCount);
+            int monsterCount = GetCurrentMonsterCount();
+            UpdateMonsterCountText(monsterCount);
 
-        if (monsterSpawner != null && monsterSpawner.HasFinishedSpawning && monsterCount <= 0)
-            CompleteMission();
+            if (monsterSpawner != null && monsterSpawner.HasFinishedSpawning && monsterCount <= 0)
+                CompleteMission();
+        
     }
 
     public void StartMission()

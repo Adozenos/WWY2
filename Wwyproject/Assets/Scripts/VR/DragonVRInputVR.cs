@@ -1,6 +1,10 @@
+using JetBrains.Annotations;
+using System;
 using System.Collections;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
+using UnityEngine.UI;
 using Valve.VR;
 using Valve.VR.InteractionSystem;
 
@@ -21,6 +25,7 @@ public class DragonVRInputVR : Singleton<DragonVRInputVR>
     public float rotationSensitivity = 2f;
     public float pitchSensitivity = 0.01f;
 
+
     [Header("Physics Layers")]
     public LayerMask groundLayerMask = ~0;
 
@@ -29,6 +34,7 @@ public class DragonVRInputVR : Singleton<DragonVRInputVR>
     public Transform fireballSpawnPoint;
     public float fireballSpeed = 45f;
     public float fireballLifetime = 6f;
+
 
     [Header("UI")]
     public GameObject resetQuitMenu;
@@ -49,6 +55,8 @@ public class DragonVRInputVR : Singleton<DragonVRInputVR>
     private SteamVR_Behaviour_Pose headPose;
     private Quaternion prevTrackingRot;
     private string currentRidingAnim;
+    private int menuIndex = -1; // -1 = 没选中
+    private GameObject[] menuButtons;
 
     private const string ANIM_FLY_FORWARD = "Fly Forward";
     private const string ANIM_FLY_GLIDE = "Fly Glide";
@@ -58,6 +66,14 @@ public class DragonVRInputVR : Singleton<DragonVRInputVR>
     private const string ANIM_FIREBALL = "Fly Fireball Shoot";
     private const string ANIM_IDLE = "Idle";
     public GameObject dragon;
+    public AudioSource aud;
+
+    private bool issystemMenuShow = false;
+    public GameObject systemMenue;
+    public GameObject ResetBtn;
+    public GameObject QtBtn;
+    private GameObject CurBtn;
+
     void Start()
     {
         if (!dragonObject) { var de = FindObjectOfType<DragonExample>(); if (de) dragonObject = de.gameObject; }
@@ -90,7 +106,31 @@ public class DragonVRInputVR : Singleton<DragonVRInputVR>
 
     void Update()
     {
+        if (systemMenue == null || ResetBtn == null|| QtBtn==null)
+        {
+            GameObject[] all =
+        FindObjectsByType<GameObject>(
+            FindObjectsInactive.Include,
+            FindObjectsSortMode.None);
+            foreach (GameObject t in all)
+            {
+                if ((t.name == "SystemUI"))
+                {
+                    systemMenue = t;
+                }
+                if (t.name == "ResetScene")
+                {
+                    ResetBtn = t;
+                }
+                if (t.name == "QuitGame")
+                {
+                    QtBtn = t;
+                }
+            }
+        }
+        headCamera = GameObject.Find("VRCamera").transform;
         if (isMounted && !isTransitioning) UpdateRiding();
+
     }
 
     void OnDestroy() { SceneManager.sceneLoaded -= OnSceneLoaded; SceneManager.sceneUnloaded -= OnSceneUnloaded; }
@@ -101,14 +141,17 @@ public class DragonVRInputVR : Singleton<DragonVRInputVR>
     {
         var L = SteamVR_Input_Sources.LeftHand; var R = SteamVR_Input_Sources.RightHand;
         SteamVR_Actions.default_GrabGrip.AddOnStateDownListener(OnLeftGrip, L);
-        SteamVR_Actions.default_GrabPinch.AddOnStateDownListener(OnLeftTriggerDown, L);
+        //SteamVR_Actions.default_GrabPinch.AddOnStateDownListener(OnLeftTriggerDown, L);
         SteamVR_Actions.default_GrabPinch.AddOnStateUpListener(OnLeftTriggerUp, L);
         SteamVR_Actions.default_MenuMoveUp.AddOnStateDownListener(OnForwardDown, L);
         SteamVR_Actions.default_MenuMoveUp.AddOnStateUpListener(OnForwardUp, L);
         SteamVR_Actions.default_MenuMoveLeft.AddOnStateDownListener(OnMenuToggle, L);
+        SteamVR_Actions.default_MenuMoveRight.AddOnStateDownListener(OnMenuToggle, L);
         SteamVR_Actions.default_GrabGrip.AddOnStateDownListener(OnRightGrip, R);
-        SteamVR_Actions.default_GrabPinch.AddOnStateDownListener(OnRightTrigger, R);
+       SteamVR_Actions.default_GrabPinch.AddOnStateDownListener(OnRightTrigger, R);
         SteamVR_Actions.default_ShowMenu.AddOnStateDownListener(OnRightMenu, R);
+        SteamVR_Actions.default_ShowMenu.AddOnChangeListener(OnLeftMenu, L);
+        SteamVR_Actions.default_GrabPinch.AddOnStateDownListener(OnLeftTriggerDown, SteamVR_Input_Sources.LeftHand);
     }
 
     void UnbindInputs()
@@ -120,10 +163,13 @@ public class DragonVRInputVR : Singleton<DragonVRInputVR>
         SteamVR_Actions.default_MenuMoveUp.RemoveOnStateDownListener(OnForwardDown, L);
         SteamVR_Actions.default_MenuMoveUp.RemoveOnStateUpListener(OnForwardUp, L);
         SteamVR_Actions.default_MenuMoveLeft.RemoveOnStateDownListener(OnMenuToggle, L);
+        SteamVR_Actions.default_MenuMoveRight.RemoveOnStateDownListener(OnMenuToggle, L);
         SteamVR_Actions.default_GrabGrip.RemoveOnStateDownListener(OnRightGrip, R);
         SteamVR_Actions.default_GrabPinch.RemoveOnStateDownListener(OnRightTrigger, R);
         SteamVR_Actions.default_ShowMenu.RemoveOnStateDownListener(OnRightMenu, R);
+        SteamVR_Actions.default_ShowMenu.RemoveOnChangeListener(OnLeftMenu, L);
     }
+
 
     void OnSceneLoaded(Scene s, LoadSceneMode m) { BindInputs(); if (isMounted) ForceDismount(); }
     void OnSceneUnloaded(Scene s) { UnbindInputs(); if (isMounted) ForceDismount(); }
@@ -139,6 +185,132 @@ public class DragonVRInputVR : Singleton<DragonVRInputVR>
     void OnRightGrip(SteamVR_Action_Boolean a, SteamVR_Input_Sources s) { if (isMounted && !isTransitioning) StartCoroutine(DismountAndLand()); }
     void OnRightTrigger(SteamVR_Action_Boolean a, SteamVR_Input_Sources s) { if (isMounted && !isTransitioning) DragonAttack(); }
     void OnRightMenu(SteamVR_Action_Boolean a, SteamVR_Input_Sources s) { var ui = DragonVRUIManagerVR.Instance; if (ui) ui.ToggleButtonHints(); }
+
+    //void OnLeftMenu(SteamVR_Action_Boolean a, SteamVR_Input_Sources s,bool b) { issystemMenuShow = !issystemMenuShow;  ShowAndHideMenu(); }
+
+    private void ShowAndHideMenu()
+    {
+        if (issystemMenuShow)
+        {
+            ShowMenu();
+        }
+        else
+        {
+            HideMenu();
+        }
+    }
+    void OnLeftMenu(SteamVR_Action_Boolean a, SteamVR_Input_Sources s, bool b)
+    {
+        if (!b) return;
+
+        issystemMenuShow = !issystemMenuShow;
+
+        if (issystemMenuShow)
+            ShowMenu();
+        else
+            HideMenu();
+    }
+    private void HideMenu()
+    {
+        if (!systemMenue) return;
+
+        systemMenue.SetActive(false);
+        issystemMenuShow = false;
+
+        menuIndex = -1;
+    }
+    private void ShowMenu()
+    {
+        if (!systemMenue) return;
+
+        systemMenue.SetActive(true);
+        issystemMenuShow = true;
+
+        menuButtons = new GameObject[] { ResetBtn, QtBtn };
+
+        menuIndex = -1; // 初始无选中
+
+        UpdateMenuVisual();
+    }
+
+    private void UpdateMenuVisual()
+    {
+        for (int i = 0; i < menuButtons.Length; i++)
+        {
+            var btn = menuButtons[i].GetComponent<Button>();
+
+            if (i == menuIndex)
+            {
+                // 选中状态
+                btn.Select();
+            }
+            else
+            {
+                // 取消选中
+                EventSystem.current.SetSelectedGameObject(null);
+            }
+        }
+    }
+    private void LeftGrabPinchActionHandler(SteamVR_Action_Boolean fromAction, SteamVR_Input_Sources fromSource)
+    {
+        Debug.Log("确认");
+
+        if (!issystemMenuShow || CurBtn == null)
+            return;
+
+        if (CurBtn == QtBtn)
+        {
+            Application.Quit();
+        }
+        else if (CurBtn == ResetBtn)
+        {
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        }
+
+        HideMenu();
+    }
+
+    private void MenuMoveRightActionHandler(SteamVR_Action_Boolean fromAction, SteamVR_Input_Sources fromSource)
+    {
+        if (!issystemMenuShow) return;
+
+        if (menuIndex == -1)
+            menuIndex = 0;
+        else
+            menuIndex = Mathf.Min(menuButtons.Length - 1, menuIndex + 1);
+
+        UpdateMenuVisual();
+    }
+
+    private void MenuMoveLeftActionHandler(SteamVR_Action_Boolean fromAction, SteamVR_Input_Sources fromSource)
+    {
+        if (!issystemMenuShow) return;
+
+        if (menuIndex == -1)
+            menuIndex = 0;
+        else
+            menuIndex = Mathf.Max(0, menuIndex - 1);
+
+        UpdateMenuVisual();
+    }
+    private void LeftTriggerConfirm()
+    {
+        if (!issystemMenuShow || menuIndex < 0) return;
+
+        var btn = menuButtons[menuIndex];
+
+        if (btn == ResetBtn)
+        {
+            SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+        }
+        else if (btn == QtBtn)
+        {
+            Application.Quit();
+        }
+
+        HideMenu();
+    }
+
 
     // ==================== MOUNT / DISMOUNT ====================
 
@@ -248,12 +420,25 @@ public class DragonVRInputVR : Singleton<DragonVRInputVR>
     }
 
     // ==================== RIDING ====================
-
+    
     void UpdateRiding()
+
     {
+        MoveForward();
         if (!dragonObject || !head) return;
 
       dragon.transform.localRotation = headCamera.transform.localRotation;
+        if (isSprinting)
+        {
+            flySpeed *= sprintMultiplier;
+
+            Vector3 moveDir = dragon.transform.forward;
+
+            SetDragonPosition(
+                dragonObject.transform.position +
+                moveDir * flySpeed * Time.deltaTime
+            );
+        }
     }
 
     // ==================== ATTACK ====================
@@ -273,6 +458,7 @@ public class DragonVRInputVR : Singleton<DragonVRInputVR>
 
     void SetDragonPosition(Vector3 pos)
     {
+
         if (rb && !rb.isKinematic) rb.MovePosition(pos);
         else dragonObject.transform.position = pos;
     }
@@ -281,6 +467,17 @@ public class DragonVRInputVR : Singleton<DragonVRInputVR>
     {
         if (rb && !rb.isKinematic) rb.MoveRotation(rot);
         else dragonObject.transform.rotation = rot;
+    }
+    public void MoveForward()
+    {
+        if (wantsForward == true)
+        {
+            Vector3 moveDir = dragon.transform.forward;
+            SetDragonPosition(
+                dragonObject.transform.position +
+                moveDir * flySpeed * Time.deltaTime
+            );
+        }
     }
 
     void PlayAnim(string n) { if (anim && !string.IsNullOrEmpty(n) && !anim.GetCurrentAnimatorStateInfo(0).IsName(n)) anim.CrossFadeInFixedTime(n, 0.15f, 0, 0f); }

@@ -5,7 +5,7 @@
       "app_key": "application.generated.unity.wwyproject.exe",
       "launch_type": "url",
       "url": "steam://launch/",
-      "action_manifest_path": "D:\\GitHubDesktop\\wwy\\Dazuoye\\WWY2\\Wwyproject\\Assets\\StreamingAssets\\SteamVR\\actions.json",
+      "action_manifest_path": "D:\\GitHub\\WWY2\\Wwyproject\\Assets\\StreamingAssets\\SteamVR\\actions.json",
       "strings": {
         "en_us": {
           "name": "Wwyproject [Testing]"
