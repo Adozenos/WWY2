@@ -1,15 +1,54 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
 public class WallAttackTargetManager : MonoBehaviour
 {
+    public static WallAttackTargetManager instance { get; private set; }
+
     [Header("Wall Targets")]
-    public List<Transform> attackWalls = new List<Transform>();
+    public List<Wall> attackWalls = new List<Wall>();
     public float targetSampleRadius = 30f;
     public string targetPointName = "GeneratedWallAttackTarget";
 
     private readonly Dictionary<Transform, Transform> generatedTargets = new Dictionary<Transform, Transform>();
+
+    private void Awake()
+    {
+        instance = this;
+    }
+
+    private void Start()
+    {
+        if (WallManager.instance != null && WallManager.instance.wallList != null)
+        {
+            attackWalls = WallManager.instance.wallList;
+        }
+    }
+
+    public bool TryDamageWall(GameObject obj, float damage)
+    {
+        if (obj == null) return false;
+
+        Wall wall = obj.GetComponentInParent<Wall>();
+        if (wall == null) return false;
+
+        wall.HP -= damage;
+        return true;
+    }
+
+    public int GetAliveWallCount()
+    {
+        if (attackWalls == null) return 0;
+
+        int count = 0;
+        foreach (Wall w in attackWalls)
+        {
+            if (w != null && w.gameObject != null && w.HP > 0)
+                count++;
+        }
+        return count;
+    }
 
     public Transform GetRandomTarget(Vector3 spawnPosition)
     {
@@ -20,11 +59,11 @@ public class WallAttackTargetManager : MonoBehaviour
         for (int i = 0; i < attackWalls.Count; i++)
         {
             int index = (startIndex + i) % attackWalls.Count;
-            Transform wall = attackWalls[index];
-            if (wall == null)
+            Wall wall = attackWalls[index];
+            if (wall == null || wall.gameObject == null || wall.HP <= 0)
                 continue;
 
-            if (TryGetTargetForWall(wall, out Transform target))
+            if (TryGetTargetForWall(wall.transform, out Transform target))
                 return target;
         }
 

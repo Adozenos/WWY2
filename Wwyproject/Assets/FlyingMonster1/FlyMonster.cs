@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
@@ -25,12 +25,12 @@ public class FlyMonster : MonoBehaviour
     enum FlyMonsterState
     {
         Float,
-        Idle,       //µØÃæ´ı»ú
-        TakeOff,    //Æğ·É
-        Chase,      //¿ÕÖĞ×·»÷
-        Atack,       //Åç»ğ
-        Retreat,    //ºó³·
-        Land,       //½µÂä
+        Idle,       //åœ°é¢å¾…æœº
+        TakeOff,    //èµ·é£
+        Chase,      //ç©ºä¸­è¿½å‡»
+        Atack,       //å–·ç«
+        Retreat,    //åæ’¤
+        Land,       //é™è½
         Dead
     }
     public GameObject target;
@@ -46,6 +46,9 @@ public class FlyMonster : MonoBehaviour
     void Update()
     {
         FindTarget();
+
+        if (target == null) return;
+
         switch (state)
         {
             case FlyMonsterState.Idle:
@@ -165,7 +168,6 @@ public class FlyMonster : MonoBehaviour
         transform.LookAt(target.transform);
         ani.SetBool("IsFlyForward", true);
         Vector3 pos = new Vector3(target.transform.position.x, target.transform.position.y + fightHeight, target.transform.position.z);
-        Debug.Log("chase");
         transform.LookAt(target.transform);
         transform.position = Vector3.MoveTowards(
             transform.position,
@@ -258,13 +260,15 @@ public class FlyMonster : MonoBehaviour
         float minDistance = 10000;
         foreach (Wall w in WallManager.instance.wallList)
         {
+            if (w == null || w.gameObject == null) continue;
+
             if (Vector3.Distance(this.transform.position, w.gameObject.transform.position) < minDistance)
             {
                 minDistance = Vector3.Distance(this.transform.position, w.gameObject.transform.position);
                 target = w.gameObject;
             }
         }
-        if (Vector3.Distance(player.gameObject.transform.position, this.transform.position) < minDistance)
+        if (player != null && Vector3.Distance(player.gameObject.transform.position, this.transform.position) < minDistance)
             target = player.gameObject;
     }
     private void UpdateLand()

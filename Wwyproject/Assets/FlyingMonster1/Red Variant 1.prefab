@@ -9,6 +9,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 1749210173919521934, guid: f386905cceefb144bb31c593e5378ac2, type: 3}
+      propertyPath: HP
+      value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 1749210173919521934, guid: f386905cceefb144bb31c593e5378ac2, type: 3}
       propertyPath: fallSpeed
       value: 10
       objectReference: {fileID: 0}
@@ -130,7 +134,7 @@ BoxCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3

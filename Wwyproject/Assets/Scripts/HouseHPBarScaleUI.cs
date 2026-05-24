@@ -4,9 +4,9 @@ public class HouseHPBarScaleUI : MonoBehaviour
 {
     [SerializeField] private WallAttackTargetManager wallAttackTargetManager;
     [SerializeField] private RectTransform hpFill;
-    [SerializeField] private float maxWalls = 5f;
 
     private float fullScaleX = 1f;
+    private float maxWalls = 1f;
 
     private void Awake()
     {
@@ -26,16 +26,11 @@ public class HouseHPBarScaleUI : MonoBehaviour
 
         if (hpFill != null)
         {
+            hpFill.pivot = new Vector2(0f, hpFill.pivot.y);
             fullScaleX = Mathf.Abs(hpFill.localScale.x);
             Vector3 scale = hpFill.localScale;
             scale.x = fullScaleX;
             hpFill.localScale = scale;
-        }
-
-        // 记录初始城墙数量作为最大血量
-        if (wallAttackTargetManager != null)
-        {
-            maxWalls = CountAliveWalls();
         }
     }
 
@@ -49,26 +44,19 @@ public class HouseHPBarScaleUI : MonoBehaviour
         UpdateHealthBar();
     }
 
-    private int CountAliveWalls()
-    {
-        if (wallAttackTargetManager == null || wallAttackTargetManager.attackWalls == null)
-            return 0;
-
-        int count = 0;
-        foreach (Transform t in wallAttackTargetManager.attackWalls)
-        {
-            if (t != null)
-                count++;
-        }
-        return count;
-    }
-
     private void UpdateHealthBar()
     {
         if (wallAttackTargetManager == null || hpFill == null)
             return;
 
-        float currentWalls = CountAliveWalls();
+        int currentWalls = wallAttackTargetManager.GetAliveWallCount();
+
+        // 动态校准最大值：首次检测到城墙时记录，墙上限被突破时更新
+        if (maxWalls < currentWalls)
+        {
+            maxWalls = currentWalls;
+        }
+
         float safeMaxWalls = Mathf.Max(1f, maxWalls);
         float healthPercent = Mathf.Clamp01(currentWalls / safeMaxWalls);
 

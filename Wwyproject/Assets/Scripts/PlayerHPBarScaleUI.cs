@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 public class PlayerHPBarScaleUI : MonoBehaviour
 {
@@ -21,10 +21,10 @@ public class PlayerHPBarScaleUI : MonoBehaviour
 
         if (targetPlayer == null)
         {
-            GameObject playerObject = GameObject.FindGameObjectWithTag("Player");
-            if (playerObject != null)
+            DragonExample dragon = FindObjectOfType<DragonExample>();
+            if (dragon != null)
             {
-                targetPlayer = playerObject.GetComponent<Player>();
+                targetPlayer = dragon.GetComponent<Player>();
             }
         }
 

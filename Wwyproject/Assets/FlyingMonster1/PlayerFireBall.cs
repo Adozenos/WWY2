@@ -8,6 +8,9 @@ public class PlayerFireBall : MonoBehaviour
     public GameObject target;
     public float speed = 5;
     public float AtkValue = 20;
+    private float time = 5f;
+    private float Timer = 0f;
+
     void Start()
     {
     }
@@ -21,7 +24,11 @@ public class PlayerFireBall : MonoBehaviour
         }
         if(target)
         moveToTarget();
-
+        Timer += Time.deltaTime;
+        if (Timer >= time)
+        {
+            Destroy(this.gameObject);
+        }
     }
     public void ChoseTarget()
     {

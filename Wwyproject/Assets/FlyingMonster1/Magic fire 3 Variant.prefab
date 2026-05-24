@@ -100,7 +100,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 0}
-  speed: 20
+  speed: 100
   player: {fileID: 0}
   AtkValue: 35
 --- !u!54 &5425910403511169463

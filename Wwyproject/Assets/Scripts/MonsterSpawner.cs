@@ -1,46 +1,83 @@
-using System.Collections;
+ï»¿using System.Collections;
 using UnityEngine;
 
 public class MonsterSpawner : MonoBehaviour
 {
-    [Header("Éú³ÉÉèÖÃ")]
-    public GameObject[] monsterPrefabs;     // ¿ÉÒÔÍÏÈë¶à¸ö²»Í¬µÄÁúÔ¤ÖÆÌå
-    public Transform[] waypoints;           // Â·¾¶µã£¨ËùÓĞ¹ÖÎï¹²ÓÃ£©
-    public Transform spawnPoint;            // Éú³Éµã
+    [Header("ç”Ÿæˆè®¾ç½®")]
+    public GameObject[] monsterPrefabs;     // å¯ä»¥æ‹–å…¥å¤šä¸ªä¸åŒçš„é¾™é¢„åˆ¶ä½“
+    public Transform[] waypoints;           // è·¯å¾„ç‚¹ï¼ˆæ‰€æœ‰æ€ªç‰©å…±ç”¨ï¼‰
+    public Transform spawnPoint;            // ç”Ÿæˆç‚¹
     public float spawnInterval = 2f;
     public int maxMonsters = 10;
 
     private int currentCount = 0;
+    private int spawnedCount = 0;
+    private Coroutine spawnRoutine;
 
-    void Start()
+    public int MaxMonster => maxMonsters;
+    public int CurrentCount => currentCount;
+    public int SpawnedCount => spawnedCount;
+    public bool IsWaveRunning => spawnRoutine != null;
+    public bool HasFinishedSpawning => spawnedCount >= maxMonsters && spawnRoutine == null;
+
+    private void OnEnable()
+    {
+        BeginWave();
+    }
+
+    private void OnDisable()
+    {
+        StopWave();
+    }
+
+    public void BeginWave()
     {
         if (monsterPrefabs == null || monsterPrefabs.Length == 0)
         {
-            Debug.LogError("Î´ÉèÖÃÈÎºÎ¹ÖÎïÔ¤ÖÆÌå£¡");
+            Debug.LogError("æœªè®¾ç½®ä»»ä½•æ€ªç‰©é¢„åˆ¶ä½“ï¼");
             return;
         }
-        StartCoroutine(SpawnRoutine());
+
+        if (spawnRoutine != null)
+            return;
+
+        currentCount = 0;
+        spawnedCount = 0;
+        spawnRoutine = StartCoroutine(SpawnRoutine());
+    }
+
+    public void StopWave()
+    {
+        if (spawnRoutine != null)
+        {
+            StopCoroutine(spawnRoutine);
+            spawnRoutine = null;
+        }
     }
 
     IEnumerator SpawnRoutine()
     {
-        while (true)
+        while (spawnedCount < maxMonsters)
         {
             yield return new WaitForSeconds(spawnInterval);
-            if (currentCount < maxMonsters)
-                SpawnMonster();
+            SpawnMonster();
         }
+
+        spawnRoutine = null;
     }
 
     void SpawnMonster()
     {
-        // Ëæ»úÑ¡È¡Ò»¸öÔ¤ÖÆÌå
+        if (spawnedCount >= maxMonsters)
+            return;
+
+        // éšæœºé€‰å–ä¸€ä¸ªé¢„åˆ¶ä½“
         GameObject prefab = monsterPrefabs[Random.Range(0, monsterPrefabs.Length)];
         Vector3 pos = spawnPoint ? spawnPoint.position : transform.position;
 
         GameObject monster = Instantiate(prefab, pos, Quaternion.identity);
 
-        // »ñÈ¡ÒÆ¶¯×é¼ş£¨¿ÉÄÜÎªµØÃæ»ò¿ÕÖĞ°æ±¾£©
+        // è·å–ç§»åŠ¨ç»„ä»¶ï¼ˆå¯èƒ½ä¸ºåœ°é¢æˆ–ç©ºä¸­ç‰ˆæœ¬ï¼‰
         MonsterPathFollower groundFollower = monster.GetComponent<MonsterPathFollower>();
         AirMonsterFollower airFollower = monster.GetComponent<AirMonsterFollower>();
 
@@ -56,27 +93,28 @@ public class MonsterSpawner : MonoBehaviour
         }
         else
         {
-            Debug.LogWarning("¹ÖÎïÔ¤ÖÆÌåÉÏÃ»ÓĞ¹ÒÔØÈÎºÎÒÆ¶¯½Å±¾£¡");
+            Debug.LogWarning("æ€ªç‰©é¢„åˆ¶ä½“ä¸Šæ²¡æœ‰æŒ‚è½½ä»»ä½•ç§»åŠ¨è„šæœ¬ï¼");
         }
 
         currentCount++;
+        spawnedCount++;
     }
 
-    // µ½´ïÖÕµã»Øµ÷
+    // åˆ°è¾¾ç»ˆç‚¹å›è°ƒ
     public void OnMonsterReachDestination(MonsterPathFollower monster)
     {
-        currentCount--;
+        currentCount = Mathf.Max(0, currentCount - 1);
     }
 
-    // ¿ÕÖĞ¹ÖÎïÒ²¸´ÓÃÍ¬Ò»¸ö»Øµ÷£¨ÖØÔØ»òÍ³Ò»µ÷ÓÃ£©
+    // ç©ºä¸­æ€ªç‰©ä¹Ÿå¤ç”¨åŒä¸€ä¸ªå›è°ƒï¼ˆé‡è½½æˆ–ç»Ÿä¸€è°ƒç”¨ï¼‰
     public void OnMonsterReachDestination(AirMonsterFollower monster)
     {
-        currentCount--;
+        currentCount = Mathf.Max(0, currentCount - 1);
     }
 
-    // Ïú»ÙÊ±½µ¼ÆÊı
+    // é”€æ¯æ—¶é™è®¡æ•°
     public void OnMonsterDestroyed()
     {
-        currentCount--;
+        currentCount = Mathf.Max(0, currentCount - 1);
     }
 }

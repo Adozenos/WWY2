@@ -1280,4 +1280,3 @@ public class DragonExample : MonoBehaviour
         return t * t * (3f - 2f * t);
     }
 }
-//GameObject.Instantiate

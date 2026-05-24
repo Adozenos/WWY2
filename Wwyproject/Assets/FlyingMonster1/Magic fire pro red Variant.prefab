@@ -104,7 +104,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 0}
-  speed: 20
+  speed: 100
   AtkValue: 20
 --- !u!136 &9197511471774021007
 CapsuleCollider:

@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using Unity.VisualScripting;
 using UnityEngine;
@@ -81,6 +81,13 @@ public class Monster : MonoBehaviour
     public void AliveUpdate()
     {
         ChoseTarget();
+
+        if (target == null)
+        {
+            navMesh.isStopped = true;
+            return;
+        }
+
         navMesh.SetDestination(target.transform.position);
         if (Vector3.Distance(transform.position, target.transform.position) >= chaseRange)
         {
@@ -100,54 +107,30 @@ public class Monster : MonoBehaviour
     }
 
     public GameObject go;
-    //private void OnTriggerEnter(Collider other)
-    //{
-    //    Debug.Log("enter");
-
-    //    if (other.CompareTag("WanJia"))
-    //    {
-    //        go = other.gameObject;
-    //    }
-    //    if (other.CompareTag("Wall"))
-    //    {
-    //        go = other.gameObject;
-    //    }
-    //}
-    //private void OnTriggerExit(Collider other)
-    //{
-    //    Debug.Log("exit");
-
-    //    if (other.CompareTag("Player"))
-    //    {
-    //        go = null;
-    //    }
-    //    if (other.CompareTag("Wall")&&target.gameObject!=go)
-    //    {
-    //        go = null;
-    //    }
-
-    //}
     public void TackDamage()
     {
-        // Debug.Log("TackDamage");
+        if (target == null) return;
+
         transform.LookAt(target.transform);
         Player p = target.GetComponent<Player>();
-        Wall w = target.GetComponent<Wall>();
+        
         if (p) p.HP -= AtcValue;
-        if (w) w.HP -= AtcValue;
+        WallAttackTargetManager.instance.TryDamageWall(target, AtcValue);
     }
     public void ChoseTarget()
     {
         float minDistance=10000;
         foreach (Wall w in WallManager.instance.wallList)
         {
+            if (w == null || w.gameObject == null) continue;
+
             if (Vector3.Distance(this.transform.position, w.gameObject.transform.position) < minDistance)
             {
                 minDistance = Vector3.Distance(this.transform.position, w.gameObject.transform.position);
                 target = w.gameObject;
             }
         }
-        if (Vector3.Distance(player.gameObject.transform.position, this.transform.position) < minDistance)
+        if (player != null && Vector3.Distance(player.gameObject.transform.position, this.transform.position) < minDistance)
             target = player.gameObject;
     }
     public void GetHit(float AtkValue)

@@ -1,6 +1,7 @@
-using System.Collections;
+ï»¿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity;
 
 public class MonsterFireBall : MonoBehaviour
 {
@@ -8,60 +9,76 @@ public class MonsterFireBall : MonoBehaviour
     public float speed;
     public Player player;
     public float AtkValue;
-    // Start is called before the first frame update
+    private Rigidbody rb;
+    private float time = 5f;
+    private float Timer = 0f;
+
     void Start()
     {
         player = GameObject.FindWithTag("WanJia").GetComponent<Player>();
+        rb = GetComponent<Rigidbody>();
     }
 
-    // Update is called once per frame
     void Update()
     {
         if (target == null)
             FindTarget();
         if (target)
             moveToTarget();
+        Timer += Time.deltaTime;
+        if(Timer >= time)
+        {
+            Destroy(this.gameObject);
+        }
     }
+
     public void FindTarget()
     {
         float minDistance = 1000;
         foreach (Wall w in WallManager.instance.wallList)
         {
+            if (w == null || w.gameObject == null) continue;
+
             if (Vector3.Distance(this.transform.position, w.gameObject.transform.position) < minDistance)
             {
                 minDistance = Vector3.Distance(this.transform.position, w.gameObject.transform.position);
                 target = w.gameObject;
             }
         }
-        if (Vector3.Distance(player.gameObject.transform.position, this.transform.position) < minDistance)
+        if (player != null && Vector3.Distance(player.gameObject.transform.position, this.transform.position) < minDistance)
             target = player.gameObject;
     }
+
     public void moveToTarget()
     {
         transform.LookAt(target.transform);
 
-        transform.position +=
-            transform.forward *
-            speed *
-            Time.deltaTime;
+        Vector3 newPos = transform.position + transform.forward * speed * Time.deltaTime;
+        if (rb != null)
+            rb.MovePosition(newPos);
+        else
+            transform.position = newPos;
     }
+
     private void OnTriggerEnter(Collider other)
     {
-        Debug.Log("Åöµ½£º" + other.name);
+        Debug.Log("ç¢°åˆ°ï¼š" + other.name);
 
-        foreach (Wall w in WallManager.instance.wallList)
+        if (WallAttackTargetManager.instance != null &&
+            WallAttackTargetManager.instance.TryDamageWall(other.gameObject, AtkValue))
         {
-            if (w.gameObject == other.gameObject)
-            {
-                Debug.Log("´òµ½Ç½");
-                w.HP -= AtkValue;
-            }
+            Debug.Log("æ‰“åˆ°å¢™");
+            Destroy(gameObject);
+            return;
         }
 
-        if (other.gameObject == player.gameObject)
+        Player hitPlayer = other.GetComponentInParent<Player>();
+        if (hitPlayer != null)
         {
-            Debug.Log("´òµ½Íæ¼Ò");
-            player.HP -= AtkValue;
+            Debug.Log("æ‰“åˆ°çŽ©å®¶");
+            hitPlayer.HP -= AtkValue;
+            Destroy(gameObject);
+            return;
         }
 
         Destroy(gameObject);
