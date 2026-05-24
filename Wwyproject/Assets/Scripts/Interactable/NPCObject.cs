@@ -120,4 +120,17 @@ public class NPCObject : MonoBehaviour
 
         return null;
     }
+    public void TriggerDialogVR()
+    {
+        if (MonsterMissionDialogUI.Instance == null)
+            return;
+
+        MonsterMissionDialogUI.Instance.ShowDialog(
+            npcName,
+            contentList,
+            transform,
+            dialogOffset,
+            GetPlayerTransform()
+        );
+    }
 }

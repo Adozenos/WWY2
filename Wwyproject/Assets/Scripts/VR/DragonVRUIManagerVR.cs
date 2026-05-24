@@ -93,8 +93,7 @@ public class DragonVRUIManagerVR : Singleton<DragonVRUIManagerVR>
 
         // Left hand hints
         ControllerButtonHints.ShowTextHint(Valve.VR.InteractionSystem.Player.instance.leftHand, SteamVR_Actions.default_GrabGrip, "上龙/升空");
-        ControllerButtonHints.ShowTextHint(Valve.VR.InteractionSystem.Player.instance.leftHand, SteamVR_Actions.default_GrabPinch, "冲刺");
-        ControllerButtonHints.ShowTextHint(Valve.VR.InteractionSystem.Player.instance.leftHand, SteamVR_Actions.default_Teleport, "移动");
+        ControllerButtonHints.ShowTextHint(Valve.VR.InteractionSystem.Player.instance.rightHand, SteamVR_Actions.default_Teleport, "移动");
 
         isHintsShowing = true;
     }
